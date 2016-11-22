@@ -12,7 +12,7 @@ You can run the python script at follows.
 ```sh
 dpat.py -n customer.ntds -c oclHashcat.pot -g "Domain Admins.txt" "Enterprise Admins.txt"
 ```
-Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provied in the sample_data folder of this project. The sample data was built from census data for common first and last names and password from the well know rockyou list.
+Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provied in the sample_data folder of this project. The sample data was built from census data for common first and last names and passwords from the well known rockyou list.
 
 Your customer.ntds file should be in this format:
 > domain\username:RID:lmhash:nthash:::
