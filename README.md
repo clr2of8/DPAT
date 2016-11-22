@@ -12,9 +12,9 @@ You can run the python script at follows.
 ```sh
 dpat.py -n customer.ntds -c oclHashcat.pot -g "Domain Admins.txt" "Enterprise Admins.txt"
 ```
-Try this out on the example files provied in the sample_data folder of this project. Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional.
+Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provied in the sample_data folder of this project. The sample data was built from census data for common first and last names and password from the well know rockyou list.
 
-Note that your customer.ntds file should be in this format:
+Your customer.ntds file should be in this format:
 > domain\username:RID:lmhash:nthash:::
 
 You can get this file by first dumping the password hashes from your domain controller by executing the following command in an administrative command prompt on a domain controller. Just make sure you have enough disk space to store the output in c:\temp. The amount of space needed will be slightly larger than the size of the ntds.dit file that is currently on the disk, as this performs a backup of that file and some registry settings.
@@ -23,7 +23,7 @@ You can get this file by first dumping the password hashes from your domain cont
 ntdsutil "ac in ntds" "ifm" "cr fu c:\temp" q q
 ```
 
-You can then turn this output into the format needed for oclHashcat and this tool using [secretsdump.py](https://github.com/CoreSecurity/impacket/blob/master/examples/secretsdump.py)
+You can then turn this output into the needed format using [secretsdump.py](https://github.com/CoreSecurity/impacket/blob/master/examples/secretsdump.py)
 
 
 ```sh
@@ -56,7 +56,7 @@ Alternatively, the group files can simply be a list of users, one per line, in t
 The Domain Password Audit Tool also has the handy feature to finish cracking the LM hashes for any hashes where the NT hash was not cracked. This asssumes that you have used oclHashcat to brute force all 7 character passwords with the following command:
 
 ```sh
-./oclHashcat64.bin -m 3000 -a 3 ntds.dit -1 ?a ?1?1?1?1?1?1?1 --increment
+./oclHashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment
 ```
 
 To see all available DPAT options use the '-h' or '--help' option
