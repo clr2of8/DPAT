@@ -38,6 +38,8 @@ Your oclHashcat file should be in this format:
 Or for LM Hashes:
 >lmhashLeftOrRight:leftOrRightHalfPasswordUpcased
 
+The DPAT tool also supports output from John the Ripper ($LM$lmhashLeftOrRight:leftOrRightHalfPasswordUpcased or $NT$lmhashLeftOrRight:leftOrRightHalfPasswordUpcased)
+
 The optional "-g" option is followed by a list of any number of files containing lists of users who are in the given group such as "Enterprise Admins" or "Domain Admins". The file can be in the format output by the [PowerView PowerShell script](https://github.com/PowerShellMafia/PowerSploit/tree/master/Recon) as shown in the example below:
 
 ```sh
@@ -57,6 +59,12 @@ The Domain Password Audit Tool also has the handy feature to finish cracking the
 
 ```sh
 ./oclHashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment
+```
+
+Or to crack LM hashes with John the Ripper instead:
+
+```sh
+john --format=LM customer.ntds
 ```
 
 To see all available DPAT options use the '-h' or '--help' option
