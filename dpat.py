@@ -73,7 +73,7 @@ class HtmlBuilder:
                     col_data = cgi.escape(str(column))
                     if col_num == col_to_not_escape:
                         col_data = column
-                    if (headers[col_num] == "Password" or headers[col_num] == "NT Hash"):
+                    if (headers[col_num] == "Password" or headers[col_num] == "NT Hash" or headers[col_num] == "LM Hash" or headers[col_num] == "Left Portion of Password" or headers[col_num] == "Right Portion of Password"):
                         sanitized_string = sanitize(column)
                         html += "<td>" + sanitized_string + "</td>"
                     else:
@@ -195,6 +195,9 @@ if not speed_it_up:
     for line in fin:
         colon_index = line.find(":")
         hash = line[0:colon_index]
+	# Stripping $NT$ and $LM$ that is included in John the Ripper output by default
+	hash = hash.lstrip("$NT$");
+	hash = hash.lstrip("$LM$");
         password = line[colon_index+1:len(line)].rstrip("\n")
         lenxx = len(hash)
         if lenxx == 32: # An NT hash
@@ -302,13 +305,15 @@ summary_table.append((c.fetchone()[0],"Unique LM Hashes (Non-blank)",None))
 c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
 list = c.fetchall()
 num_lm_hashes_cracked_where_nt_hash_not_cracked = len(list)
-output = "WARNING there were %d unique LM hashes cracked for which you do not have the password. Cracking these to their 7-character upcased representation is easy with oclHashcat and this tool will determine the correct case and concatenate the two halves of the password for you! Try this oclHashcat command to crack all LM hashes: ./oclHashcat64.bin -m 3000 -a 3 Customer.Ntds -1 ?a ?1?1?1?1?1?1?1 --increment" % num_lm_hashes_cracked_where_nt_hash_not_cracked
+output = "WARNING there were %d unique LM hashes cracked for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
 if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hbt = HtmlBuilder()
     headers = ["LM Hash","Left Portion of Password","Right Portion of Password","NT Hash"]
     hbt.add_table_to_html(list,headers)
     filename = hbt.write_html_report("lm_noncracked.html")
     hb.build_html_body_string(output + ' <a href="' + filename + '">Details</a>')
+    output2 = "</br> Cracking these to their 7-character upcased representation is easy with oclHashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this oclHashcat command to crack all LM hashes:</br> <strong>./oclHashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
+    hb.build_html_body_string(output2)
 
 # Count and List of passwords that were only able to be cracked because the LM hash was available, includes usernames
 c.execute('SELECT username_full,password,LENGTH(password) as plen,only_lm_cracked FROM hash_infos WHERE only_lm_cracked = 1 ORDER BY plen')
