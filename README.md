@@ -39,7 +39,7 @@ Your oclHashcat file should be in this format:
 Or for LM Hashes:
 >lmhashLeftOrRight:leftOrRightHalfPasswordUpcased
 
-The DPAT tool also supports output from John the Ripper (same format as oclHashcat.pot but prepened with $NT$ or $LM$)
+The DPAT tool also supports output from John the Ripper (same format as oclHashcat.pot but prepended with $NT$ or $LM$)
 
 The optional "-g" option is followed by a list of any number of files containing lists of users who are in the given group such as "Enterprise Admins" or "Domain Admins". The file can be in the format output by the [PowerView PowerShell script](https://github.com/PowerShellMafia/PowerSploit/tree/master/Recon) as shown in the example below:
 
