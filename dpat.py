@@ -70,14 +70,12 @@ class HtmlBuilder:
             col_num = 0
             for column in line:
                 if column is not None:
-                    col_data = cgi.escape(str(column))
-                    if col_num == col_to_not_escape:
-                        col_data = column
+                    col_data = column
                     if (headers[col_num] == "Password" or headers[col_num] == "NT Hash" or headers[col_num] == "LM Hash" or headers[col_num] == "Left Portion of Password" or headers[col_num] == "Right Portion of Password"):
-                        sanitized_string = sanitize(column)
-                        html += "<td>" + sanitized_string + "</td>"
-                    else:
-                        html += "<td>" + col_data + "</td>"
+                        col_data = sanitize(column)
+                    if col_num != col_to_not_escape:
+                        col_data = cgi.escape(str(col_data))
+                    html += "<td>" + col_data + "</td>"
                 else:
                     html += "<td></td>"
                 col_num += 1
