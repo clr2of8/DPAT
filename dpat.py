@@ -208,7 +208,7 @@ if not speed_it_up:
     fin.close()
 
     # Do additional LM cracking
-    c.execute('SELECT nt_hash,lm_pass_left,lm_pass_right FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by nt_hash')
+    c.execute('SELECT nt_hash,lm_pass_left,lm_pass_right FROM hash_infos WHERE (lm_pass_left is not NULL or lm_pass_right is not NULL) and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by nt_hash')
     list = c.fetchall()
     count = len(list)
     print "Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count
@@ -384,6 +384,10 @@ hb.add_table_to_html(summary_table,summary_table_headers,2)
 hb.write_html_report(filename_for_html_report)
 print "The Report has been written to the \"" + filename_for_html_report + "\" file in the \"" +folder_for_html_report + "\" directory"
 
+# Save (commit) the changes and close the database connection
+conn.commit()
+conn.close()
+
 #prompt user to open the report
 print 'Would you like to open the report now? [Y/n]',
 while True:
@@ -397,6 +401,4 @@ while True:
     except ValueError:
         print "Please respond with y or n",
 
-# Save (commit) the changes and close the database connection
-conn.commit()
-conn.close()
+
