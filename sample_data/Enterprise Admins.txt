@@ -1,8 +1,8 @@
-child.domain.com\Dayna.Wade
-child.domain.com\Dustin.Wahlund
-child.domain.com\Earnestine.Waiau
-child.domain.com\Emerson.Wala
-child.domain.com\Roman.Zurek
-child.domain.com\Rosalinda.Zusman
-child.domain.com\Sallie.Zych
-child.domain.com\Samuel.Zysk
+child.domain.com\Dayna.Wade-admin
+child.domain.com\Dustin.Wahlund-admin
+child.domain.com\Earnestine.Waiau-admin
+child.domain.com\Emerson.Wala-admin
+child.domain.com\Roman.Zurek-admin
+child.domain.com\Rosalinda.Zusman-admin
+child.domain.com\Sallie.Zych-admin
+child.domain.com\Samuel.Zysk-admin
