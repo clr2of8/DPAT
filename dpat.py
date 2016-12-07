@@ -303,7 +303,7 @@ summary_table.append((c.fetchone()[0],"Unique LM Hashes (Non-blank)",None))
 c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
 list = c.fetchall()
 num_lm_hashes_cracked_where_nt_hash_not_cracked = len(list)
-output = "WARNING there were %d unique LM hashes cracked for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
+output = "WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
 if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hbt = HtmlBuilder()
     headers = ["LM Hash","Left Portion of Password","Right Portion of Password","NT Hash"]
