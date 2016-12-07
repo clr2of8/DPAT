@@ -98,7 +98,7 @@ for last in f_last:
         if password == "W$%23eu&*!rhs0":
             wroteRHS = True
     if add_admin:
-        f.write(domain + userName.rstrip("-admin") + ":" + rid + ":" + lm_hash.lower() + ":" + nt_hash + ":::\n")
+        f.write(domain + "\\" + userName.rstrip("-admin") + ":" + rid + ":" + lm_hash.lower() + ":" + nt_hash + ":::\n")
 f2.write("aad3b435b51404ee:\n")
 f.close()
 f2.close()
