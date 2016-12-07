@@ -18,7 +18,7 @@ parser.add_argument('-o','--outputfile',help='The name of the HTML report output
 parser.add_argument('-d','--reportdirectory',help='Folder containing the output HTML files, defaults to ' + folder_for_html_report, required=False, default=folder_for_html_report)
 parser.add_argument('-w','--writedb',help='Write the SQLite database info to disk for offline inspection instead of just in memory. Filename will be "' + filename_for_db_on_disk + '"', default=False, required=False, action='store_true')
 parser.add_argument('-s','--sanitize',help='Sanitize the report by partially redacting passwords and hashes. Prepends the report directory with \"Sanitized - \"', default=False, required=False, action='store_true')
-parser.add_argument('-g','--grouplists',help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\username. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
+parser.add_argument('-g','--grouplists',help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\username. Example: -g "Domain Admins.txt" "Enterprise Admins.txt" or it can be in the format output by using the PowerView Get-NetGroupMember function', nargs='*', required=False)
 args = parser.parse_args()
 
 ntds_file = args.ntdsfile
