@@ -9,7 +9,7 @@ A full video tutorial and demo can be viewed here: [http://www.blackhillsinfosec
 
 If you would like to click through an example report you can do so at [http://dpat.website](http://dpat.website).
 
-You can run the python script at follows.
+You can run the python script as follows.
 
 ```sh
 dpat.py -n customer.ntds -c oclHashcat.pot -g "Domain Admins.txt" "Enterprise Admins.txt"
