@@ -14,7 +14,7 @@ You can run the python script as follows.
 ```sh
 dpat.py -n customer.ntds -c oclHashcat.pot -g "Domain Admins.txt" "Enterprise Admins.txt"
 ```
-Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provied in the sample_data folder of this project. The sample data was built from census data for common first and last names and passwords from the well known rockyou list.
+Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provided in the sample_data folder of this project. The sample data was built from census data for common first and last names and passwords from the well known rockyou list.
 
 Your customer.ntds file should be in this format:
 > domain\username:RID:lmhash:nthash:::
@@ -34,7 +34,7 @@ secretsdump.py -system registry/SYSTEM -ntds Active\ Directory/ntds.dit LOCAL -o
 
 The command above will create a file called "customer.ntds" which you will use with this tool as well as for password cracking.
 
-Your oclHashcat file should be in this format:
+Your oclHashcat file should be in this format (which is the default output of the oclHashcat):
 >nthash:password
 
 Or for LM Hashes:
