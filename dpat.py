@@ -235,7 +235,7 @@ summary_table.append((num_hashes,"Password Hashes","<a href=\"" + filename + "\"
 # Total number of UNIQUE hashes in the NTDS file
 c.execute('SELECT count(DISTINCT nt_hash) FROM hash_infos')
 num_unique_nt_hashes = c.fetchone()[0]
-summary_table.append((num_unique_nt_hashes,"Unique Password Hashes"))
+summary_table.append((num_unique_nt_hashes,"Unique Password Hashes",None))
 
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos where password is not NULL')
