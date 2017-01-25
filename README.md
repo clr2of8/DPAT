@@ -7,8 +7,6 @@ This is a python script that will generate password use statistics from password
 
 A full video tutorial and demo can be viewed here: [http://www.blackhillsinfosec.com/?p=5527](http://www.blackhillsinfosec.com/?p=5527).
 
-If you would like to click through an example report you can do so at [http://dpat.website](http://dpat.website).
-
 You can run the python script as follows.
 
 ```sh
