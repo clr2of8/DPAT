@@ -43,13 +43,13 @@ The DPAT tool also supports output from John the Ripper (same format as oclHashc
 The optional "-g" option is followed by a list of any number of files containing lists of users who are in the given group such as "Enterprise Admins" or "Domain Admins". The file can be in the format output by the [PowerView PowerShell script](https://github.com/PowerShellMafia/PowerSploit/tree/master/Recon) as shown in the example below:
 
 ```sh
-Get-NetGroupMember -GroupName "Domain Admins" > "Domain Admins.txt"
+Get-NetGroupMember -Recurse -GroupName "Domain Admins" > "Domain Admins.txt"
 ```
 
 or to read a group from another domain use something like the following (note that name of the other domain and the domain controller can be obtained with Get-NetForestDomain)
 
 ```sh
-Get-NetGroupMember -GroupName "Enterprise Admins" -Domain "some.domain.com" -DomainController "DC01.some.domain.com" > "Enterprise Admins.txt"
+Get-NetGroupMember -Recurse -GroupName "Enterprise Admins" -Domain "some.domain.com" -DomainController "DC01.some.domain.com" > "Enterprise Admins.txt"
 ```
 Alternatively, the group files can simply be a list of users, one per line, in the following format:
 
