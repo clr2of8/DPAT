@@ -224,7 +224,7 @@ if not speed_it_up:
         count-=1
 
 # Total number of hashes in the NTDS file
-c.execute('SELECT username_full,password,LENGTH(password)as plen,nt_hash,only_lm_cracked FROM hash_infos ORDER BY plen DESC, password')
+c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos ORDER BY plen DESC, password')
 list = c.fetchall()
 num_hashes = len(list)
 hbt = HtmlBuilder()
@@ -240,18 +240,18 @@ summary_table.append((num_unique_nt_hashes,"Unique Password Hashes",None))
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos where password is not NULL')
 num_passwords_cracked = c.fetchone()[0]
-summary_table.append((num_passwords_cracked,"User Passwords Discovered Through Cracking",None))
+summary_table.append((num_passwords_cracked,"Passwords Discovered Through Cracking",None))
 
 # Number of UNIQUE passwords that were cracked
 c.execute('SELECT count(Distinct password) FROM hash_infos where password is not NULL')
 num_unique_passwords_cracked = c.fetchone()[0]
-summary_table.append((num_unique_passwords_cracked,"Unique User Passwords Discovered Through Cracking",None))
+summary_table.append((num_unique_passwords_cracked,"Unique Passwords Discovered Through Cracking",None))
 
 # Percentage of all passwords cracked and percentage of unique passwords cracked
 percent_cracked_unique = num_unique_passwords_cracked/float(num_unique_nt_hashes)*100
 percent_all_cracked = num_passwords_cracked/float(num_hashes)*100
-summary_table.append(("%0.1f" % percent_all_cracked,"Percent of User Passwords Cracked","<a href=\"" + filename + "\">Details</a>"))
-summary_table.append(("%0.1f" % percent_cracked_unique,"Percent of Unique User Passwords Cracked","<a href=\"" + filename + "\">Details</a>"))
+summary_table.append(("%0.1f" % percent_all_cracked,"Percent of Passwords Cracked","<a href=\"" + filename + "\">Details</a>"))
+summary_table.append(("%0.1f" % percent_cracked_unique,"Percent of Unique Passwords Cracked","<a href=\"" + filename + "\">Details</a>"))
 
 # Group Membership Details and number of passwords cracked for each group
 for group in compare_groups:
@@ -320,7 +320,7 @@ hbt = HtmlBuilder()
 headers = ["Username","Password","Password Length","Only LM Cracked"]
 hbt.add_table_to_html(list,headers)
 filename = hbt.write_html_report("users_only_cracked_through_lm.html")
-summary_table.append((len(list),"Users Passwords Only Cracked via LM Hash","<a href=\"" + filename + "\">Details</a>"))
+summary_table.append((len(list),"Passwords Only Cracked via LM Hash","<a href=\"" + filename + "\">Details</a>"))
 c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1')
 summary_table.append((c.fetchone()[0],"Unique LM Hashes Cracked Where NT Hash was Not Cracked",None))
 
