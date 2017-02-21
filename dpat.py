@@ -104,6 +104,7 @@ conn.text_factory = str
 c = conn.cursor()
 
 # nt2lmcrack functionality
+# the all_casings functionality was taken from https://github.com/BBerastegui/foo/blob/master/casing.py
 def all_casings(input_string):
     if not input_string:
         yield ""
@@ -388,7 +389,8 @@ print "The Report has been written to the \"" + filename_for_html_report + "\" f
 conn.commit()
 conn.close()
 
-#prompt user to open the report
+# prompt user to open the report
+# the code to prompt user to open the file was borrowed from the EyeWitness tool https://github.com/ChrisTruncer/EyeWitness
 print 'Would you like to open the report now? [Y/n]',
 while True:
     try:
