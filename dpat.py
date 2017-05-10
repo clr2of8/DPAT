@@ -191,13 +191,14 @@ if not speed_it_up:
 
     # read in POT file
     fin = open(cracked_file)
-    for line in fin:
+    for lineT in fin:
+        line = lineT.rstrip('\r\n')
         colon_index = line.find(":")
         hash = line[0:colon_index]
 	# Stripping $NT$ and $LM$ that is included in John the Ripper output by default
 	hash = hash.lstrip("$NT$");
 	hash = hash.lstrip("$LM$");
-        password = line[colon_index+1:len(line)].rstrip("\n")
+        password = line[colon_index+1:len(line)]
         lenxx = len(hash)
         if lenxx == 32: # An NT hash
             c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
