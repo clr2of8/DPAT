@@ -1,6 +1,6 @@
 # Domain Password Audit Tool (DPAT)
 
-This is a python script that will generate password use statistics from password hashes dumped from a domain controller and a password crack file such as oclHashcat.pot generated from the oclHashcat tool during password cracking. The report is an HTML report with clickable links.
+This is a python script that will generate password use statistics from password hashes dumped from a domain controller and a password crack file such as hashcat.potfile generated from the Hashcat tool during password cracking. The report is an HTML report with clickable links.
 
 
 ![alt text](dpatSummary.png "DPAT Summary Table")
@@ -10,7 +10,7 @@ A full video tutorial and demo can be viewed here: [http://www.blackhillsinfosec
 You can run the python script as follows.
 
 ```sh
-dpat.py -n customer.ntds -c oclHashcat.pot -g "Domain Admins.txt" "Enterprise Admins.txt"
+dpat.py -n customer.ntds -c hashcat.potfile -g "Domain Admins.txt" "Enterprise Admins.txt"
 ```
 Note that the group lists at the end (-g "Domain Admins.txt "Enterprise Admins.txt") are optional. Try this out on the example files provided in the sample_data folder of this project. The sample data was built from census data for common first and last names and passwords from the well known rockyou list.
 
@@ -32,13 +32,13 @@ secretsdump.py -system registry/SYSTEM -ntds Active\ Directory/ntds.dit LOCAL -o
 
 The command above will create a file called "customer.ntds" which you will use with this tool as well as for password cracking.
 
-Your oclHashcat file should be in this format (which is the default output of the oclHashcat):
+Your Hashcat file should be in this format (which is the default output of the Hashcat):
 >nthash:password
 
 Or for LM Hashes:
 >lmhashLeftOrRight:leftOrRightHalfPasswordUpcased
 
-The DPAT tool also supports output from John the Ripper (same format as oclHashcat.pot but prepended with $NT$ or $LM$)
+The DPAT tool also supports output from John the Ripper (same format as hashcat.potfile but prepended with $NT$ or $LM$)
 
 The optional "-g" option is followed by a list of any number of files containing lists of users who are in the given group such as "Enterprise Admins" or "Domain Admins". The file can be in the format output by the [PowerView PowerShell script](https://github.com/PowerShellMafia/PowerSploit/tree/master/Recon) as shown in the example below:
 
@@ -55,10 +55,10 @@ Alternatively, the group files can simply be a list of users, one per line, in t
 
 >domain\username
 
-The Domain Password Audit Tool also has the handy feature to finish cracking the LM hashes for any hashes where the NT hash was not cracked. This asssumes that you have used oclHashcat to brute force all 7 character passwords with the following command:
+The Domain Password Audit Tool also has the handy feature to finish cracking the LM hashes for any hashes where the NT hash was not cracked. This asssumes that you have used Hashcat to brute force all 7 character passwords with the following command:
 
 ```sh
-./oclHashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment
+./hashcat.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment
 ```
 
 Or to crack LM hashes with John the Ripper instead:
@@ -75,7 +75,7 @@ usage: dpat.py [-h] -n NTDSFILE -c CRACKFILE [-o OUTPUTFILE]
                [-g [GROUPLISTS [GROUPLISTS ...]]]
 
 This script will perfrom a domain password audit based on an extracted NTDS
-file and password cracking output such as oclHashcat.
+file and password cracking output such as Hashcat.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -83,7 +83,7 @@ optional arguments:
                         NTDS file name (output from SecretsDump.py)
   -c CRACKFILE, --crackfile CRACKFILE
                         Password Cracking output in the default form output by
-                        oclHashcat, such as oclHashcat.pot
+                        Hashcat, such as hashcat.potfile
   -o OUTPUTFILE, --outputfile OUTPUTFILE
                         The name of the HTML report output file, defaults to
                         _DomainPasswordAuditReport.html
