@@ -11,9 +11,9 @@ speed_it_up = False
 from pprint import pprint
 from distutils.util import strtobool
 import hashlib,binascii,cgi,sqlite3, argparse, os, io, webbrowser
-parser = argparse.ArgumentParser(description='This script will perfrom a domain password audit based on an extracted NTDS file and password cracking output such as oclHashcat.')
+parser = argparse.ArgumentParser(description='This script will perfrom a domain password audit based on an extracted NTDS file and password cracking output such as Hashcat.')
 parser.add_argument('-n','--ntdsfile', help='NTDS file name (output from SecretsDump.py)',required=True)
-parser.add_argument('-c','--crackfile',help='Password Cracking output in the default form output by oclHashcat, such as oclHashcat.pot', required=True)
+parser.add_argument('-c','--crackfile',help='Password Cracking output in the default form output by Hashcat, such as hashcat.potfile', required=True)
 parser.add_argument('-o','--outputfile',help='The name of the HTML report output file, defaults to ' + filename_for_html_report, required=False, default=filename_for_html_report)
 parser.add_argument('-d','--reportdirectory',help='Folder containing the output HTML files, defaults to ' + folder_for_html_report, required=False, default=folder_for_html_report)
 parser.add_argument('-w','--writedb',help='Write the SQLite database info to disk for offline inspection instead of just in memory. Filename will be "' + filename_for_db_on_disk + '"', default=False, required=False, action='store_true')
@@ -314,7 +314,7 @@ if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hbt.add_table_to_html(list,headers)
     filename = hbt.write_html_report("lm_noncracked.html")
     hb.build_html_body_string(output + ' <a href="' + filename + '">Details</a>')
-    output2 = "</br> Cracking these to their 7-character upcased representation is easy with oclHashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this oclHashcat command to crack all LM hashes:</br> <strong>./oclHashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
+    output2 = "</br> Cracking these to their 7-character upcased representation is easy with Hashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this Hashcat command to crack all LM hashes:</br> <strong>./hashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
     hb.build_html_body_string(output2)
 
 # Count and List of passwords that were only able to be cracked because the LM hash was available, includes usernames
