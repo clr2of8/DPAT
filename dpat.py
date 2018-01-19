@@ -130,7 +130,7 @@ def crack_it(nt_hash,lm_pass):
 if not speed_it_up:
     # Create tables and indices
     c.execute('''CREATE TABLE hash_infos
-        (username_full text, username text, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean)''')
+        (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean)''')
     c.execute("CREATE INDEX index_nt_hash ON hash_infos (nt_hash);")
     c.execute("CREATE INDEX index_lm_hash_left ON hash_infos (lm_hash_left);")
     c.execute("CREATE INDEX index_lm_hash_right ON hash_infos (lm_hash_right);")
