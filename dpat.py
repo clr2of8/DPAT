@@ -19,6 +19,7 @@ parser.add_argument('-d','--reportdirectory',help='Folder containing the output 
 parser.add_argument('-w','--writedb',help='Write the SQLite database info to disk for offline inspection instead of just in memory. Filename will be "' + filename_for_db_on_disk + '"', default=False, required=False, action='store_true')
 parser.add_argument('-s','--sanitize',help='Sanitize the report by partially redacting passwords and hashes. Prepends the report directory with \"Sanitized - \"', default=False, required=False, action='store_true')
 parser.add_argument('-g','--grouplists',help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\username or it can be in the format output by using the PowerView Get-NetGroupMember function. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
+parser.add_argument('-m','--machineaccts', help='Include machine accounts when calculating statistics', default=False, required=False, action='store_true')
 args = parser.parse_args()
 
 ntds_file = args.ntdsfile
@@ -179,8 +180,9 @@ if not speed_it_up:
         lm_hash_right = lm_hash[16:32]
         nt_hash = vals[3]
         username = usernameFull.split('\\')[-1]
-        # Insert a row of data
-        c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)", (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
+        #Exclude machine accounts (where account name ends in $) by default
+        if args.machineaccts or not username.endswith("$"):
+            c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)", (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
     fin.close()
 
     # update group membership flags
