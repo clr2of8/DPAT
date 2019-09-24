@@ -107,4 +107,4 @@ optional arguments:
 
 ## Sponsors
 
-[![Black Hills Information Security](https://www.blackhillsinfosec.com/wp-content/uploads/2018/12/BHIS-logo-L-768x768.png)](http://www.blackhillsinfosec.com)
+[![Black Hills Information Security](https://www.blackhillsinfosec.com/wp-content/uploads/2018/12/BHIS-logo-L-1024x1024-221x221.png)](http://www.blackhillsinfosec.com)
