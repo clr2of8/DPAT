@@ -227,20 +227,20 @@ if not speed_it_up:
         colon_index = line.find(":")
         hash = line[0:colon_index]
         # Stripping $NT$ and $LM$ that is included in John the Ripper output by default
-    hash = hash.lstrip("$NT$")
-    hash = hash.lstrip("$LM$")
-    password = line[colon_index+1:len(line)]
-    lenxx = len(hash)
-    if lenxx == 32:  # An NT hash
-        c.execute(
-            "UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
-    elif lenxx == 16:  # An LM hash, either left or right
-        c.execute(
-            "UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
-        c.execute(
-            "UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
-    else:
-        print("What kind of a hash is this??")
+        hash = hash.lstrip("$NT$")
+        hash = hash.lstrip("$LM$")
+        password = line[colon_index+1:len(line)]
+        lenxx = len(hash)
+        if lenxx == 32:  # An NT hash
+            c.execute(
+                "UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
+        elif lenxx == 16:  # An LM hash, either left or right
+            c.execute(
+                "UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
+            c.execute(
+                "UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
+        else:
+            print("What kind of a hash is this??")
     fin.close()
 
     # Do additional LM cracking
