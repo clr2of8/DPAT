@@ -5,7 +5,10 @@ import io
 import os
 import argparse
 import sqlite3
-import cgi
+try:
+    import html as htmllib
+except ImportError:
+    import cgi as htmllib  
 import binascii
 import hashlib
 from distutils.util import strtobool
@@ -97,7 +100,7 @@ class HtmlBuilder:
                     if (headers[col_num] == "Password" or headers[col_num] == "NT Hash" or headers[col_num] == "LM Hash" or headers[col_num] == "Left Portion of Password" or headers[col_num] == "Right Portion of Password"):
                         col_data = sanitize(column)
                     if col_num != col_to_not_escape:
-                        col_data = cgi.escape(str(col_data))
+                        col_data = htmllib.escape(str(col_data))
                     html += "<td>" + col_data + "</td>"
                 else:
                     html += "<td></td>"
