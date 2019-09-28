@@ -149,10 +149,12 @@ def all_casings(input_string):
 
 
 def crack_it(nt_hash, lm_pass):
+    asc = ""
+    hexed = ""
     password = None
     for pwd_guess in all_casings(lm_pass):
-        hash = hashlib.new('md4', pwd_guess.encode('utf-16le')).digest()
-        if nt_hash == binascii.hexlify(hash):
+        hash = hashlib.new('md4', pwd_guess.encode('utf-16le')).hexdigest()
+        if nt_hash == hash:
             password = pwd_guess
             break
     return password
@@ -266,6 +268,7 @@ if not speed_it_up:
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos ORDER BY plen DESC, password')
 list = c.fetchall()
+
 num_hashes = len(list)
 hbt = HtmlBuilder()
 hbt.add_table_to_html(
