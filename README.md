@@ -78,7 +78,7 @@ This script will perfrom a domain password audit based on an extracted NTDS
 file and password cracking output such as Hashcat.
 
 optional arguments:
-  -h, --help            show this help message and exit
+  -h, --help            Show this help message and exit
   -n NTDSFILE, --ntdsfile NTDSFILE
                         NTDS file name (output from SecretsDump.py)
   -c CRACKFILE, --crackfile CRACKFILE
@@ -94,8 +94,8 @@ optional arguments:
                         inspection instead of just in memory. Filename will be
                         "pass_audit.db"
   -s, --sanitize        Sanitize the report by partially redacting passwords
-                        and hashes. Prepends the report directory with
-                        "Sanitized - "
+                        and hashes. Appends the report directory with
+                        " - Sanitized"
   -g [GROUPLISTS [GROUPLISTS ...]], --grouplists [GROUPLISTS [GROUPLISTS ...]]
                         The name of one or multiple files that contain lists
                         of usernames in particular groups. The group names
