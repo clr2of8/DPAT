@@ -23,7 +23,7 @@ You can get this file by first dumping the password hashes from your domain cont
 ntdsutil "ac in ntds" "ifm" "cr fu c:\temp" q q
 ```
 
-You can then turn this output into the needed format using [secretsdump.py](https://github.com/CoreSecurity/impacket/blob/master/examples/secretsdump.py)
+The ntdsutil command will create the two files, `Active Directory\ntds.dit` and `registry\SYSTEM`, that are needed. You can then turn this output into the needed format using [secretsdump.py](https://github.com/CoreSecurity/impacket/blob/master/examples/secretsdump.py). Secretsdump comes pre-installed on Kali Linux or can be easily installed on Windows using [these instructions](https://medium.com/@airman604/installing-impacket-on-windows-ded7ba8bec9a).
 
 
 ```sh
