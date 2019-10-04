@@ -22,7 +22,7 @@ compare_groups = []
 speed_it_up = False
 
 parser = argparse.ArgumentParser(
-    description='This script will perfrom a domain password audit based on an extracted NTDS file and password cracking output such as Hashcat.')
+    description='This script will perform a domain password audit based on an extracted NTDS file and password cracking output such as Hashcat.')
 parser.add_argument('-n', '--ntdsfile',
                     help='NTDS file name (output from SecretsDump.py)', required=True)
 parser.add_argument('-c', '--crackfile',
@@ -45,7 +45,7 @@ cracked_file = args.crackfile
 filename_for_html_report = args.outputfile
 folder_for_html_report = args.reportdirectory
 if args.sanitize:
-    folder_for_html_report = "Sanitized - " + folder_for_html_report
+    folder_for_html_report = folder_for_html_report + " - Sanitized"
 if args.grouplists is not None:
     for groupfile in args.grouplists:
         compare_groups.append(
