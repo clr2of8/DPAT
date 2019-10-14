@@ -106,6 +106,6 @@ optional arguments:
                         "Domain Admins.txt" "Enterprise Admins.txt"
 ```
 
-## Sponsors
+## Originally Sponsored by:
 
 [![Black Hills Information Security](https://www.blackhillsinfosec.com/wp-content/uploads/2018/12/BHIS-logo-L-1024x1024-221x221.png)](http://www.blackhillsinfosec.com)
