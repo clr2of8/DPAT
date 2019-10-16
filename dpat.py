@@ -3,8 +3,10 @@
 import webbrowser
 import io
 import os
+import re
 import argparse
 import sqlite3
+import sys
 try:
     import html as htmllib
 except ImportError:
@@ -154,7 +156,7 @@ def crack_it(nt_hash, lm_pass):
     password = None
     for pwd_guess in all_casings(lm_pass):
         hash = hashlib.new('md4', pwd_guess.encode('utf-16le')).hexdigest()
-        if nt_hash == hash:
+        if nt_hash.lower() == hash.lower():
             password = pwd_guess
             break
     return password
@@ -205,17 +207,19 @@ if not speed_it_up:
     # Read in NTDS file
     fin = open(ntds_file)
     for line in fin:
-        vals = line.rstrip("\n").split(':')
-        usernameFull = vals[0]
-        lm_hash = vals[2]
-        lm_hash_left = lm_hash[0:16]
-        lm_hash_right = lm_hash[16:32]
-        nt_hash = vals[3]
-        username = usernameFull.split('\\')[-1]
-        # Exclude machine accounts (where account name ends in $) by default
-        if args.machineaccts or not username.endswith("$"):
-            c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)",
-                      (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
+        if line != "\n":
+            vals = line.rstrip("\n").split(':')
+            if vals[0] != '\r':
+                usernameFull = vals[0]
+                lm_hash = vals[2]
+                lm_hash_left = lm_hash[0:16]
+                lm_hash_right = lm_hash[16:32]
+                nt_hash = vals[3]
+                username = usernameFull.split('\\')[-1]
+                # Exclude machine accounts (where account name ends in $) by default
+                if args.machineaccts or not username.endswith("$"):
+                    c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)",
+                            (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
     fin.close()
 
     # update group membership flags
@@ -236,16 +240,23 @@ if not speed_it_up:
         hash = hash.lstrip("$LM$")
         password = line[colon_index+1:len(line)]
         lenxx = len(hash)
-        if lenxx == 32:  # An NT hash
-            c.execute(
-                "UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
-        elif lenxx == 16:  # An LM hash, either left or right
-            c.execute(
-                "UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
-            c.execute(
-                "UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
-        else:
-            print("What kind of a hash is this??")
+        if hash != '\n':
+            if password.startswith('$HEX['):
+                hex2 = (binascii.unhexlify(re.findall("\$HEX\[([^\]]+)", password)[-1]))
+                l = list()
+                for x in list(hex2):
+                    if type(x) == int:
+                        x = str(chr(x))
+                    l.append(x)
+                password = ""
+                password = password.join(l)
+            if lenxx == 32:  # An NT hash
+                c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
+            elif lenxx == 16:  # An LM hash, either left or right
+                c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
+                c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
+            else:
+                print("What kind of a hash is this??")
     fin.close()
 
     # Do additional LM cracking
@@ -261,8 +272,7 @@ if not speed_it_up:
             lm_pwd += pair[2]
         password = crack_it(pair[0], lm_pwd)
         if password is not None:
-            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' +
-                      password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
+            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         count -= 1
 
 # Total number of hashes in the NTDS file
