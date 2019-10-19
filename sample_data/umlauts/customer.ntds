@@ -1,0 +1,13 @@
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:a8bfc015bdbf6d0cf77396692ca5fc11:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+dpat:1001:aad3b435b51404eeaad3b435b51404ee:4472910b89492aef53ceb6b420b15f52:::
+WIN-M2HC5DF3QHT$:1002:aad3b435b51404eeaad3b435b51404ee:bffd9b2883d322e0b95f859e14fa4879:::
+krbtgt:502:aad3b435b51404eeaad3b435b51404ee:d79e8ab4d16989228127fcbf6c4e5967:::
+dpatdomain.local\larry:1603:aad3b435b51404eeaad3b435b51404ee:ecd382f6949d712f7f81982242755cc3:::
+dpatdomain.local\curly:1604:aad3b435b51404eeaad3b435b51404ee:0c01c4fd959e29dd499cb0c31dfc6a75:::
+dpatdomain.local\mo:1605:aad3b435b51404eeaad3b435b51404ee:a86f8d1ed0156db9e86d7c586894c196:::
+dpatdomain.local\bob:1606:aad3b435b51404eeaad3b435b51404ee:aaeb7b36057ea55e2b5bccf0fb3a4992:::
+dpatdomain.local\frank:1607:aad3b435b51404eeaad3b435b51404ee:a3ba63b79dab674ad4575ec9f605aebe:::
+dpatdomain.local\nancy:1608:aad3b435b51404eeaad3b435b51404ee:0c0009fe6efce0cc20c7aef8f4b54bb4:::
+dpatdomain.local\harry:1609:aad3b435b51404eeaad3b435b51404ee:cac3a73c02d89fd62392800815e0f425:::
+dpatdomain.local\albert:1610:aad3b435b51404eeaad3b435b51404ee:12ac2f50d6666a408470649b8cf58aa8:::

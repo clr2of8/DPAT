@@ -1,0 +1,9 @@
+$NT$ecd382f6949d712f7f81982242755cc3:Möm Rülez!
+$NT$0c01c4fd959e29dd499cb0c31dfc6a75:1Nephi3:7
+$NT$a86f8d1ed0156db9e86d7c586894c196:$HEX[a4cf23]
+$NT$aaeb7b36057ea55e2b5bccf0fb3a4992:$HEX[4be4747a6c65]
+$NT$a3ba63b79dab674ad4575ec9f605aebe:$hex[4be4747a6c65]
+$NT$0c0009fe6efce0cc20c7aef8f4b54bb4:[nothexN!]
+$NT$12ac2f50d6666a408470649b8cf58aa8:Hey Hey Hey!
+$NT$4472910b89492aef53ceb6b420b15f52:Fall2019
+$NT$a8bfc015bdbf6d0cf77396692ca5fc11:DomainAdmin77
