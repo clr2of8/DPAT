@@ -207,19 +207,19 @@ if not speed_it_up:
     # Read in NTDS file
     fin = open(ntds_file)
     for line in fin:
-        if line != "\n":
-            vals = line.rstrip("\n").split(':')
-            if vals[0] != '\r':
-                usernameFull = vals[0]
-                lm_hash = vals[2]
-                lm_hash_left = lm_hash[0:16]
-                lm_hash_right = lm_hash[16:32]
-                nt_hash = vals[3]
-                username = usernameFull.split('\\')[-1]
-                # Exclude machine accounts (where account name ends in $) by default
-                if args.machineaccts or not username.endswith("$"):
-                    c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)",
-                            (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
+        vals = line.rstrip("\n").split(':')
+        if len(vals) == 1:
+            continue
+        usernameFull = vals[0]
+        lm_hash = vals[2]
+        lm_hash_left = lm_hash[0:16]
+        lm_hash_right = lm_hash[16:32]
+        nt_hash = vals[3]
+        username = usernameFull.split('\\')[-1]
+        # Exclude machine accounts (where account name ends in $) by default
+        if args.machineaccts or not username.endswith("$"):
+            c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)",
+                    (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
     fin.close()
 
     # update group membership flags
@@ -236,27 +236,27 @@ if not speed_it_up:
         colon_index = line.find(":")
         hash = line[0:colon_index]
         # Stripping $NT$ and $LM$ that is included in John the Ripper output by default
-        hash = hash.lstrip("$NT$")
-        hash = hash.lstrip("$LM$")
+        jtr = False
+        if hash.startswith('$NT$') or hash.startswith('$LM$'):
+            hash = hash.lstrip("$NT$")
+            hash = hash.lstrip("$LM$")
+            jtr = True
         password = line[colon_index+1:len(line)]
         lenxx = len(hash)
-        if hash != '\n':
-            if password.startswith('$HEX['):
-                hex2 = (binascii.unhexlify(re.findall("\$HEX\[([^\]]+)", password)[-1]))
-                l = list()
-                for x in list(hex2):
-                    if type(x) == int:
-                        x = str(chr(x))
-                    l.append(x)
-                password = ""
-                password = password.join(l)
-            if lenxx == 32:  # An NT hash
-                c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
-            elif lenxx == 16:  # An LM hash, either left or right
-                c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
-                c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
-            else:
-                print("What kind of a hash is this??")
+        if re.match("\$HEX\[([^\]]+)", password) and not jtr:
+            hex2 = (binascii.unhexlify(re.findall("\$HEX\[([^\]]+)", password)[-1]))
+            l = list()
+            for x in list(hex2):
+                if type(x) == int:
+                    x = str(chr(x))
+                l.append(x)
+            password = ""
+            password = password.join(l)
+        if lenxx == 32:  # An NT hash
+            c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
+        elif lenxx == 16:  # An LM hash, either left or right
+            c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
+            c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
     fin.close()
 
     # Do additional LM cracking
