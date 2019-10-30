@@ -7,6 +7,7 @@ import re
 import argparse
 import sqlite3
 import sys
+import shutil
 try:
     import html as htmllib
 except ImportError:
@@ -82,7 +83,7 @@ class HtmlBuilder:
         self.bodyStr += str + "</br>\n"
 
     def get_html(self):
-        return "<!DOCTYPE html>\n" + "<html>\n<head>\n<style>\ntable, th, td {border: 1px solid black; border-collapse: collapse; text-align: center;} th, td {padding: 2px;}</style>\n</head>\n" + "<body>\n" + self.bodyStr + "</html>\n" + "</body>\n"
+        return "<!DOCTYPE html>\n" + "<html>\n<head>\n<link rel='stylesheet' href='report.css'>\n</head>\n" + "<body>\n" + self.bodyStr + "</html>\n" + "</body>\n"
 
     def add_table_to_html(self, list, headers=[], col_to_not_escape=None):
         html = '<table border="1">\n'
@@ -113,6 +114,7 @@ class HtmlBuilder:
 
     def write_html_report(self, filename):
         f = open(os.path.join(folder_for_html_report, filename), "w")
+        shutil.copy('report.css', folder_for_html_report)
         f.write(self.get_html())
         f.close()
         return filename
@@ -225,7 +227,7 @@ if not speed_it_up:
     # update group membership flags
     for group in groups_users:
         for user in groups_users[group]:
-            sql = "UPDATE hash_infos SET \"" + group + \
+            sql = "UPDATE hash_infoss SET \"" + group + \
                 "\" = 1 WHERE username_full = \"" + user + "\""
             c.execute(sql)
 
