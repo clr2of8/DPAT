@@ -1,0 +1,26 @@
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+    text-align: center;
+}
+
+th, td {
+    padding: 10px;
+}
+
+th {
+    border-bottom-width: 2px;
+}
+
+body {
+    justify-content: center;
+}
+
+table {
+    box-shadow: 0 7px 8px -4px rgba(0,0,0,.2),0 12px 17px 2px rgba(0,0,0,.14),0 5px 22px 4px rgba(0,0,0,.12)!important;
+    margin-top: 30px;
+}
+
+tr:nth-child(even) {
+    background: #d1d3d2;
+}

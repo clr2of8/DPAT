@@ -7,7 +7,7 @@ import re
 import argparse
 import sqlite3
 import sys
-import shutil
+from shutil import copyfile
 try:
     import html as htmllib
 except ImportError:
@@ -114,7 +114,7 @@ class HtmlBuilder:
 
     def write_html_report(self, filename):
         f = open(os.path.join(folder_for_html_report, filename), "w")
-        shutil.copy('report.css', folder_for_html_report)
+        copyfile('report.css', os.path.join(folder_for_html_report, "report.css"))
         f.write(self.get_html())
         f.close()
         return filename
@@ -227,7 +227,7 @@ if not speed_it_up:
     # update group membership flags
     for group in groups_users:
         for user in groups_users[group]:
-            sql = "UPDATE hash_infoss SET \"" + group + \
+            sql = "UPDATE hash_infos SET \"" + group + \
                 "\" = 1 WHERE username_full = \"" + user + "\""
             c.execute(sql)
 
