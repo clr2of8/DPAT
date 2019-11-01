@@ -413,7 +413,7 @@ list = c.fetchall()
 counter = 0
 for tuple in list:
     length = str(tuple[0])
-    c.execute('SELECT username FROM hash_infos WHERE LENGTH(password) = ' + length)
+    c.execute('SELECT username FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ' + length)
     usernames = c.fetchall()
     hbt = HtmlBuilder()
     headers = ["Users with a password length of " + length]
