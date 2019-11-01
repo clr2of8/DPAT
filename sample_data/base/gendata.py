@@ -1,11 +1,12 @@
 #!/usr/bin/python
 
-import random,hashlib,binascii
-
-f_first = open("base/first.txt")
-f_last = open("base/last.txt")
-f_passwords = open("base/subset-rockyou.txt")
-f_das= open("Domain Admins.txt","w")
+import random,hashlib,binascii, os
+cwd = os.getcwd()
+print(cwd)
+f_first = open("sample_data/base/first.txt")
+f_last = open("sample_data/base/last_small.txt")
+f_passwords = open("sample_data/base/subset-rockyou.txt")
+f_das= open("sample_data/Domain Admins.txt","w")
 
 first_list=list(f_first)
 count_first = 0
@@ -54,7 +55,7 @@ dontCrackWithNT = ["W$%23eu&*!rhs0","UpPeRlOwEr","HarD222cRacK","resgocswit7hWQ"
 dontNTCrackTheseUsers = ["Bobbie.Mcgrane-admin","Rosalinda.Zusman-admin","Cecil.Mcinnis-admin", "Cory.Ruhoff-admin","Cliff.Adames-admin","Samuel.Zysk-admin"]
 
 f = open("customer.ntds","w")
-f2 = open("oclHashcat.pot","w")
+f2 = open("hashcat.potfile","w")
 wroteRHS = False
 
 for last in f_last:
@@ -85,6 +86,15 @@ for last in f_last:
     if lm_dict.has_key(password):
         lm_hash = lm_dict[password]
     f.write(domain + "\\" + userName + ":" + rid + ":" + lm_hash.lower() + ":" + nt_hash + ":::\n")
+    # simulating password history, up to 24 entries generated for each user, 78% of these simulated as cracked
+    for x in range(0, 24):
+        if (random.randrange(0,100)<5):
+            break
+        hist_password = password + str(24 - x)
+        hist_nt_hash = binascii.hexlify(hashlib.new('md4', hist_password.encode('utf-16le')).digest())
+        f.write(domain + "\\" + userName + "_history" + str(x) + ":" + rid + ":aad3b435b51404eeaad3b435b51404ee:" + hist_nt_hash + ":::\n")
+        if (random.randrange(1,100)<78):
+            f2.write(hist_nt_hash + ":" + hist_password + "\n")           
     if  (password not in dontCrackWithNT) and (userName not in dontNTCrackTheseUsers) and (password in lm_dict or random.randrange(1,100)<78):
         f2.write(nt_hash + ":" + password + "\n")
     if  password in dontCrackWithNT:

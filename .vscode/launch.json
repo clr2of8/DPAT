@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DPAT basic",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-w"]
+        },
+        {
+            "name": "DPAT basic Umlauts",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\hashcat.potfile"]
+        },         
+        {
+            "name": "DPAT basic History",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile"]
+        },        
+        {
+            "name": "DPAT basic Umlauts JtR",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\john.pot"]
+        },
+        {
+            "name": "DPAT sanitized",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot", "-s"]
+        },
+        {
+            "name": "DPAT All",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt","-s","-w"]
+        },
+        {
+            "name": "gen data",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
