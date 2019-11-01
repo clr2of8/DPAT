@@ -454,7 +454,7 @@ for tuple in list:
     if password is None:
         password = ""
     hbt = HtmlBuilder()
-    headers = ["Users Sharing a Hash:Password of " +
+    headers = ["Users Sharing a hash:password of " +
                sanitize(tuple[0]) + ":" + sanitize(password)]
     hbt.add_table_to_html(usernames, headers)
     filename = hbt.write_html_report(str(counter) + "reuse_usernames.html")
