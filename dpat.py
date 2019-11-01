@@ -473,7 +473,7 @@ max_password_history = c.fetchone()
 max_password_history = max_password_history[0]
 hbt = HtmlBuilder()
 if max_password_history < 0:
-    hbt.build_html_body_string("There was no history contained in the password files.  If you would like to get the password history, run secretsdump.py with the flag \"-history\". <br><br> Sample secretsdump.py command: secretsdump.py -system registry/SYSTEM -ntds Active\ Directory/ntds.dit LOCAL -outputfile customer -history")
+    hbt.build_html_body_string("There was no history contained in the password files.  If you would like to get the password history, run secretsdump.py with the flag \"-history\". <br><br> Sample secretsdump.py command: secretsdump.py -system registry/SYSTEM -ntds \"Active Directory/ntds.dit\" LOCAL -outputfile customer -history")
 else:
     password_history_headers = ["Username", "Current Password"]
     column_names = ["cp"]
@@ -488,7 +488,6 @@ else:
         command += (', MIN(CASE WHEN history_index = ' + str(i) + ' THEN password END) ' + column_names[-1])
     command += (' FROM hash_infos GROUP BY history_base_username) ')
     command += "WHERE coalesce(" + ",".join(column_names) + ") is not NULL"
-    print(command)
     c.execute(command)
     list = c.fetchall()
     headers = password_history_headers
@@ -496,7 +495,6 @@ else:
 filename=hbt.write_html_report("password_history.html")
 summary_table.append((None, "Password History",
                 "<a href=\"" + filename + "\">Details</a>"))
-
 
 # Write out the main report page
 hb.add_table_to_html(summary_table, summary_table_headers, 2)
