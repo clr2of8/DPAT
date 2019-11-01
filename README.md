@@ -33,14 +33,14 @@ The ntdsutil command will create the two files, `Active Directory\ntds.dit` and 
 secretsdump.py -system registry/SYSTEM -ntds "Active Directory/ntds.dit" LOCAL -outputfile customer
 ```
 
-If you would like to include the password history, the following command can be run.
+If you would like to report on password history, include the `-history` flag as shown below.
 
 
 ```sh
 secretsdump.py -system registry/SYSTEM -ntds "Active Directory/ntds.dit" LOCAL -outputfile customer -history
 ```
 
-Note: Try using `impacket-secretsdump` instead of `secretsdump.py` on Kali Linux if secrectsdump.py can't be found
+Note: Try using `impacket-secretsdump` instead of `secretsdump.py` on Kali Linux if secrectsdump.py can't be found.
 
 The command above will create a file called "customer.ntds" which you will use with this tool (DPAT) as well as for password cracking. You can now proceed with your password cracking efforts to create a crack file in this format (which is the default output of the Hashcat tool):
 
