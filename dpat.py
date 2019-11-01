@@ -218,7 +218,7 @@ if not speed_it_up:
         username = usernameFull.split('\\')[-1]
         history_base_username = usernameFull
         history_index = -1
-        username_info = r"(?i)(.*\\.*)_history([0-9]+)$"
+        username_info = r"(?i)(.*\\*.*)_history([0-9]+)$"
         results = re.search(username_info,usernameFull)
         if results:
             history_base_username = results.group(1)
