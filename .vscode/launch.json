@@ -29,6 +29,14 @@
             "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile"]
         },
         {
+            "name": "DPAT basic History small",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\history\\customer-small.ntds", "-c","sample_data\\history\\john-customer-small.pot", "-w"]
+        },
+        {
             "name": "DPAT basic History - Sanitized",
             "type": "python",
             "request": "launch",

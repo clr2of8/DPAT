@@ -4,6 +4,7 @@ This is a python script that will generate password use statistics from password
 
 
 ![alt text](dpatSummary.png "DPAT Summary Table")
+![alt text](history.png "DPAT Summary Table")
 
 A full video tutorial and demo can be viewed here: [http://www.blackhillsinfosec.com/?p=5527](http://www.blackhillsinfosec.com/?p=5527).
 
