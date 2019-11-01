@@ -100,7 +100,7 @@ class HtmlBuilder:
             for column in line:
                 if column is not None:
                     col_data = column
-                    if (headers[col_num] == "Password" or headers[col_num] == "NT Hash" or headers[col_num] == "LM Hash" or headers[col_num] == "Left Portion of Password" or headers[col_num] == "Right Portion of Password"):
+                    if ((("Password") in headers[col_num] and not "Password Length" in headers[col_num]) or ("Hash" in headers[col_num]) or ("History" in headers[col_num])):
                         col_data = sanitize(column)
                     if col_num != col_to_not_escape:
                         col_data = htmllib.escape(str(col_data))
@@ -153,8 +153,6 @@ def all_casings(input_string):
 
 
 def crack_it(nt_hash, lm_pass):
-    asc = ""
-    hexed = ""
     password = None
     for pwd_guess in all_casings(lm_pass):
         hash = hashlib.new('md4', pwd_guess.encode('utf-16le')).hexdigest()
@@ -167,7 +165,7 @@ def crack_it(nt_hash, lm_pass):
 if not speed_it_up:
     # Create tables and indices
     c.execute('''CREATE TABLE hash_infos
-        (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean)''')
+        (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
     c.execute("CREATE INDEX index_nt_hash ON hash_infos (nt_hash);")
     c.execute("CREATE INDEX index_lm_hash_left ON hash_infos (lm_hash_left);")
     c.execute("CREATE INDEX index_lm_hash_right ON hash_infos (lm_hash_right);")
@@ -218,10 +216,17 @@ if not speed_it_up:
         lm_hash_right = lm_hash[16:32]
         nt_hash = vals[3]
         username = usernameFull.split('\\')[-1]
+        history_base_username = usernameFull
+        history_index = -1
+        username_info = r"(?i)(.*\\*.*)_history([0-9]+)$"
+        results = re.search(username_info,usernameFull)
+        if results:
+            history_base_username = results.group(1)
+            history_index = results.group(2)
         # Exclude machine accounts (where account name ends in $) by default
         if args.machineaccts or not username.endswith("$"):
-            c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash) VALUES (?,?,?,?,?,?)",
-                    (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash))
+            c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash, history_index, history_base_username) VALUES (?,?,?,?,?,?,?,?)",
+                    (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash, history_index, history_base_username))
     fin.close()
 
     # update group membership flags
@@ -245,8 +250,8 @@ if not speed_it_up:
             jtr = True
         password = line[colon_index+1:len(line)]
         lenxx = len(hash)
-        if re.match("\$HEX\[([^\]]+)", password) and not jtr:
-            hex2 = (binascii.unhexlify(re.findall("\$HEX\[([^\]]+)", password)[-1]))
+        if re.match(r"\$HEX\[([^\]]+)", password) and not jtr:
+            hex2 = (binascii.unhexlify(re.findall(r"\$HEX\[([^\]]+)", password)[-1]))
             l = list()
             for x in list(hex2):
                 if type(x) == int:
@@ -265,7 +270,8 @@ if not speed_it_up:
     c.execute('SELECT nt_hash,lm_pass_left,lm_pass_right FROM hash_infos WHERE (lm_pass_left is not NULL or lm_pass_right is not NULL) and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by nt_hash')
     list = c.fetchall()
     count = len(list)
-    print("Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count)
+    if count != 0:
+        print("Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count)
     for pair in list:
         lm_pwd = ""
         if pair[1] is not None:
@@ -278,7 +284,7 @@ if not speed_it_up:
         count -= 1
 
 # Total number of hashes in the NTDS file
-c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos ORDER BY plen DESC, password')
+c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 list = c.fetchall()
 
 num_hashes = len(list)
@@ -290,43 +296,43 @@ summary_table.append((num_hashes, "Password Hashes",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Total number of UNIQUE hashes in the NTDS file
-c.execute('SELECT count(DISTINCT nt_hash) FROM hash_infos')
+c.execute('SELECT count(DISTINCT nt_hash) FROM hash_infos WHERE history_index = -1')
 num_unique_nt_hashes = c.fetchone()[0]
 summary_table.append((num_unique_nt_hashes, "Unique Password Hashes", None))
 
 # Number of users whose passwords were cracked
-c.execute('SELECT count(*) FROM hash_infos where password is not NULL')
+c.execute('SELECT count(*) FROM hash_infos WHERE password is not NULL AND history_index = -1')
 num_passwords_cracked = c.fetchone()[0]
 summary_table.append(
     (num_passwords_cracked, "Passwords Discovered Through Cracking", None))
 
 # Number of UNIQUE passwords that were cracked
 c.execute(
-    'SELECT count(Distinct password) FROM hash_infos where password is not NULL')
+    'SELECT count(Distinct password) FROM hash_infos where password is not NULL AND history_index = -1 ')
 num_unique_passwords_cracked = c.fetchone()[0]
 summary_table.append((num_unique_passwords_cracked,
                       "Unique Passwords Discovered Through Cracking", None))
 
-# Percentage of all passwords cracked and percentage of unique passwords cracked
+# Percentage of current passwords cracked and percentage of unique passwords cracked
 percent_cracked_unique = num_unique_passwords_cracked / \
     float(num_unique_nt_hashes)*100
 percent_all_cracked = num_passwords_cracked/float(num_hashes)*100
 summary_table.append(("%0.1f" % percent_all_cracked,
-                      "Percent of Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
+                      "Percent of Current Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
 summary_table.append(("%0.1f" % percent_cracked_unique,
                       "Percent of Unique Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
 
 # Group Membership Details and number of passwords cracked for each group
 for group in compare_groups:
     c.execute(
-        "SELECT username_full,nt_hash FROM hash_infos WHERE \"" + group[0] + "\" = 1")
+        "SELECT username_full,nt_hash FROM hash_infos WHERE \"" + group[0] + "\" = 1 AND history_index = -1")
     # this list contains the username_full and nt_hash of all users in this group
     list = c.fetchall()
     num_groupmembers = len(list)
     new_list = []
     for tuple in list:  # the tuple is (username_full, nt_hash, lm_hash)
         c.execute(
-            "SELECT username_full FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\"")
+            "SELECT username_full FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1")
         users_list = c.fetchall()
         if len(users_list) < 30:
             string_of_users = (', '.join(''.join(elems)
@@ -336,7 +342,7 @@ for group in compare_groups:
             new_tuple = tuple + ("Too Many to List",)
         new_tuple += (len(users_list),)
         c.execute(
-            "SELECT password,lm_hash FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" LIMIT 1")
+            "SELECT password,lm_hash FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1 LIMIT 1")
         result = c.fetchone()
         new_tuple += (result[0],)
         # Is the LM Hash stored for this user?
@@ -365,15 +371,15 @@ for group in compare_groups:
                           group[0], "<a href=\"" + filename + "\">Details</a>"))
 
 # Number of LM hashes in the NTDS file, excluding the blank value
-c.execute('SELECT count(*) FROM hash_infos where lm_hash is not "aad3b435b51404eeaad3b435b51404ee"')
+c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
 summary_table.append((c.fetchone()[0], "LM Hashes (Non-blank)", None))
 
 # Number of UNIQUE LM hashes in the NTDS, excluding the blank value
-c.execute('SELECT count(DISTINCT lm_hash) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee"')
+c.execute('SELECT count(DISTINCT lm_hash) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
 summary_table.append((c.fetchone()[0], "Unique LM Hashes (Non-blank)", None))
 
 # Number of passwords that are LM cracked for which you don't have the exact (case sensitive) password.
-c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
+c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") AND history_index = -1 and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
 list = c.fetchall()
 num_lm_hashes_cracked_where_nt_hash_not_cracked = len(list)
 output = "WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
@@ -389,7 +395,7 @@ if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hb.build_html_body_string(output2)
 
 # Count and List of passwords that were only able to be cracked because the LM hash was available, includes usernames
-c.execute('SELECT username_full,password,LENGTH(password) as plen,only_lm_cracked FROM hash_infos WHERE only_lm_cracked = 1 ORDER BY plen')
+c.execute('SELECT username_full,password,LENGTH(password) as plen,only_lm_cracked FROM hash_infos WHERE only_lm_cracked = 1 ORDER BY plen AND history_index = -1')
 list = c.fetchall()
 hbt = HtmlBuilder()
 headers = ["Username", "Password", "Password Length", "Only LM Cracked"]
@@ -397,17 +403,17 @@ hbt.add_table_to_html(list, headers)
 filename = hbt.write_html_report("users_only_cracked_through_lm.html")
 summary_table.append((len(list), "Passwords Only Cracked via LM Hash",
                       "<a href=\"" + filename + "\">Details</a>"))
-c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1')
+c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1 AND history_index = -1')
 summary_table.append(
     (c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash was Not Cracked", None))
 
 # Password length statistics
-c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL and plen is not 0 GROUP BY plen ORDER BY plen')
+c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen is not 0 GROUP BY plen ORDER BY plen')
 list = c.fetchall()
 counter = 0
 for tuple in list:
     length = str(tuple[0])
-    c.execute('SELECT username FROM hash_infos WHERE LENGTH(password) = ' + length)
+    c.execute('SELECT username FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ' + length)
     usernames = c.fetchall()
     hbt = HtmlBuilder()
     headers = ["Users with a password length of " + length]
@@ -418,7 +424,7 @@ for tuple in list:
 hbt = HtmlBuilder()
 headers = ["Password Length", "Count", "Details"]
 hbt.add_table_to_html(list, headers, 2)
-c.execute('SELECT COUNT(password) as count, LENGTH(password) as plen FROM hash_infos WHERE plen is not NULL and plen is not 0 GROUP BY plen ORDER BY count DESC')
+c.execute('SELECT COUNT(password) as count, LENGTH(password) as plen FROM hash_infos WHERE plen is not NULL AND history_index = -1 and plen is not 0 GROUP BY plen ORDER BY count DESC')
 list = c.fetchall()
 headers = ["Count", "Password Length"]
 hbt.add_table_to_html(list, headers)
@@ -427,7 +433,7 @@ summary_table.append((None, "Password Length Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Top Ten Passwords Used
-c.execute('SELECT password,COUNT(password) as count FROM hash_infos WHERE password is not NULL and password is not "" GROUP BY password ORDER BY count DESC LIMIT 20')
+c.execute('SELECT password,COUNT(password) as count FROM hash_infos WHERE password is not NULL AND history_index = -1 and password is not "" GROUP BY password ORDER BY count DESC LIMIT 20')
 list = c.fetchall()
 hbt = HtmlBuilder()
 headers = ["Password", "Count"]
@@ -437,18 +443,18 @@ summary_table.append((None, "Top Password Use Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password Reuse Statistics (based only on NT hash)
-c.execute('SELECT nt_hash, COUNT(nt_hash) as count, password FROM hash_infos WHERE nt_hash is not "31d6cfe0d16ae931b73c59d7e0c089c0" GROUP BY nt_hash ORDER BY count DESC LIMIT 20')
+c.execute('SELECT nt_hash, COUNT(nt_hash) as count, password FROM hash_infos WHERE nt_hash is not "31d6cfe0d16ae931b73c59d7e0c089c0" AND history_index = -1 GROUP BY nt_hash ORDER BY count DESC LIMIT 20')
 list = c.fetchall()
 counter = 0
 for tuple in list:
     c.execute(
-        'SELECT username FROM hash_infos WHERE nt_hash = \"' + tuple[0] + '\"')
+        'SELECT username FROM hash_infos WHERE nt_hash = \"' + tuple[0] + '\" AND history_index = -1')
     usernames = c.fetchall()
     password = tuple[2]
     if password is None:
         password = ""
     hbt = HtmlBuilder()
-    headers = ["Users Sharing a Hash:Password of " +
+    headers = ["Users Sharing a hash:password of " +
                sanitize(tuple[0]) + ":" + sanitize(password)]
     hbt.add_table_to_html(usernames, headers)
     filename = hbt.write_html_report(str(counter) + "reuse_usernames.html")
@@ -460,6 +466,35 @@ hbt.add_table_to_html(list, headers, 3)
 filename = hbt.write_html_report("password_reuse_stats.html")
 summary_table.append((None, "Password Reuse Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
+
+# Password History Stats
+c.execute('SELECT MAX(history_index) FROM hash_infos;')
+max_password_history = c.fetchone()
+max_password_history = max_password_history[0]
+hbt = HtmlBuilder()
+if max_password_history < 0:
+    hbt.build_html_body_string("There was no history contained in the password files.  If you would like to get the password history, run secretsdump.py with the flag \"-history\". <br><br> Sample secretsdump.py command: secretsdump.py -system registry/SYSTEM -ntds \"Active Directory/ntds.dit\" LOCAL -outputfile customer -history")
+else:
+    password_history_headers = ["Username", "Current Password"]
+    column_names = ["cp"]
+    command = 'SELECT * FROM ( '
+    command += 'SELECT history_base_username'
+    for i in range(-1,max_password_history + 1):
+        if i == -1:
+            column_names.append("cp")
+        else:
+            password_history_headers.append("History " + str(i))
+            column_names.append("h" + str(i))
+        command += (', MIN(CASE WHEN history_index = ' + str(i) + ' THEN password END) ' + column_names[-1])
+    command += (' FROM hash_infos GROUP BY history_base_username) ')
+    command += "WHERE coalesce(" + ",".join(column_names) + ") is not NULL"
+    c.execute(command)
+    list = c.fetchall()
+    headers = password_history_headers
+    hbt.add_table_to_html(list, headers, 8)
+filename=hbt.write_html_report("password_history.html")
+summary_table.append((None, "Password History",
+                "<a href=\"" + filename + "\">Details</a>"))
 
 # Write out the main report page
 hb.add_table_to_html(summary_table, summary_table_headers, 2)

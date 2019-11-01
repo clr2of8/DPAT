@@ -27,7 +27,15 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile"]
-        },        
+        },
+        {
+            "name": "DPAT basic History - Sanitized",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-s"]
+        },      
         {
             "name": "DPAT basic Umlauts JtR",
             "type": "python",
