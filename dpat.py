@@ -99,7 +99,7 @@ class HtmlBuilder:
             for column in line:
                 if column is not None:
                     col_data = column
-                    if (headers[col_num] contains Password or headers[col_num] == "NT Hash" or headers[col_num] == "LM Hash" or headers[col_num] == "Left Portion of Password" or headers[col_num] == "Right Portion of Password"):
+                    if ((("Password") in headers[col_num] and not "Password Length" in headers[col_num]) or ("Hash" in headers[col_num]) or ("History" in headers[col_num])):
                         col_data = sanitize(column)
                     if col_num != col_to_not_escape:
                         col_data = htmllib.escape(str(col_data))
@@ -466,24 +466,34 @@ summary_table.append((None, "Password Reuse Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password History Stats
-password_history_headers = ["Username", "Current Password"]
 c.execute('SELECT MAX(history_index) FROM hash_infos;')
 max_password_history = c.fetchone()
 max_password_history = max_password_history[0]
-command = 'SELECT history_base_username'
-for i in range(-1,max_password_history + 1):
-    if i != -1:
-        password_history_headers.append("History " + str(i))    
-    command += (', MIN(CASE WHEN history_index = ' + str(i) + ' THEN password END)')
-command += ('FROM hash_infos GROUP BY history_base_username;')
-c.execute(command)
-list = c.fetchall()
 hbt = HtmlBuilder()
-headers = password_history_headers
-hbt.add_table_to_html(list, headers, 8)
-filename = hbt.write_html_report("password_history.html")
+if max_password_history < 0:
+    hbt.build_html_body_string("There was no history contained in the password files.  If you would like to get the password history, run secretsdump.py with the flag \"-history\". <br><br> Sample secretsdump.py command: secretsdump.py -system registry/SYSTEM -ntds Active\ Directory/ntds.dit LOCAL -outputfile customer -history")
+else:
+    password_history_headers = ["Username", "Current Password"]
+    column_names = ["cp"]
+    command = 'SELECT * FROM ( '
+    command += 'SELECT history_base_username'
+    for i in range(-1,max_password_history + 1):
+        if i == -1:
+            column_names.append("cp")
+        else:
+            password_history_headers.append("History " + str(i))
+            column_names.append("h" + str(i))
+        command += (', MIN(CASE WHEN history_index = ' + str(i) + ' THEN password END) ' + column_names[-1])
+    command += (' FROM hash_infos GROUP BY history_base_username) ')
+    command += "WHERE coalesce(" + ",".join(column_names) + ") is not NULL"
+    print(command)
+    c.execute(command)
+    list = c.fetchall()
+    headers = password_history_headers
+    hbt.add_table_to_html(list, headers, 8)
+filename=hbt.write_html_report("password_history.html")
 summary_table.append((None, "Password History",
-                   "<a href=\"" + filename + "\">Details</a>"))
+                "<a href=\"" + filename + "\">Details</a>"))
 
 
 # Write out the main report page
