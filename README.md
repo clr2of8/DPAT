@@ -33,7 +33,7 @@ The ntdsutil command will create the two files, `Active Directory\ntds.dit` and 
 secretsdump.py -system registry/SYSTEM -ntds "Active Directory/ntds.dit" LOCAL -outputfile customer
 ```
 
-If you would like to report on password history, include the `-history` flag as shown below.
+If you would like to report on password history, include the `-history` flag as shown below. Note: Jan/2020 Josh Wright reported that the history hashes are not exported correctly on ntds.dit files from Win2K16 TP4 and later. See this [issue](https://github.com/SecureAuthCorp/impacket/issues/656).
 
 
 ```sh
