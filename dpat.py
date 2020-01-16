@@ -7,6 +7,7 @@ import re
 import argparse
 import sqlite3
 import sys
+from zxcvbn import zxcvbn
 from shutil import copyfile
 try:
     import html as htmllib
@@ -41,8 +42,11 @@ parser.add_argument('-s', '--sanitize', help='Sanitize the report by partially r
 parser.add_argument('-g', '--grouplists', help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\\username or it can be in the format output by using the PowerView Get-NetGroupMember function. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
 parser.add_argument('-m', '--machineaccts', help='Include machine accounts when calculating statistics',
                     default=False, required=False, action='store_true')
+parser.add_argument('-pS', '--passwordstrength', help='Include password strengths',
+                    default=False, required=False, action='store_true')
 args = parser.parse_args()
 
+pwStren = args.passwordstrength
 ntds_file = args.ntdsfile
 cracked_file = args.crackfile
 filename_for_html_report = args.outputfile
@@ -59,7 +63,6 @@ if not os.path.exists(folder_for_html_report):
     os.makedirs(folder_for_html_report)
 
 # show only the first and last char of a password or a few more chars for a hash
-
 
 def sanitize(pass_or_hash):
     if not args.sanitize:
@@ -164,8 +167,13 @@ def crack_it(nt_hash, lm_pass):
 
 if not speed_it_up:
     # Create tables and indices
-    c.execute('''CREATE TABLE hash_infos
-        (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
+    if pwStren:
+        c.execute('''CREATE TABLE hash_infos
+            (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, password_strength text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
+        c.execute("CREATE INDEX password_strength ON hash_infos (password_strength);")
+    else:
+        c.execute('''CREATE TABLE hash_infos
+            (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, password_strength text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
     c.execute("CREATE INDEX index_nt_hash ON hash_infos (nt_hash);")
     c.execute("CREATE INDEX index_lm_hash_left ON hash_infos (lm_hash_left);")
     c.execute("CREATE INDEX index_lm_hash_right ON hash_infos (lm_hash_right);")
@@ -237,6 +245,8 @@ if not speed_it_up:
             c.execute(sql)
 
     # read in POT file
+    scores = 0
+    total_score = 0
     fin = open(cracked_file)
     for lineT in fin:
         line = lineT.rstrip('\r\n')
@@ -248,6 +258,7 @@ if not speed_it_up:
             hash = hash.lstrip("$NT$")
             hash = hash.lstrip("$LM$")
             jtr = True
+        potFile = open('sample_data\\oclHashcat.pot', 'r')
         password = line[colon_index+1:len(line)]
         lenxx = len(hash)
         if re.match(r"\$HEX\[([^\]]+)", password) and not jtr:
@@ -260,7 +271,25 @@ if not speed_it_up:
             password = ""
             password = password.join(l)
         if lenxx == 32:  # An NT hash
-            c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
+            if pwStren:
+                score = 'No password'
+                if len(password) > 0:
+                    score = zxcvbn(password)['score']
+                    scores += 1
+                    total_score += score
+                    if score == 0:
+                        score = 'Very weak'
+                    elif score == 1:
+                        score = 'Weak'
+                    elif score == 2:
+                        score = 'Average'
+                    elif score == 3:
+                        score = 'Strong'
+                    elif score == 4:
+                        score = 'Very strong'
+                c.execute("UPDATE hash_infos SET password = ?, password_strength = ? WHERE nt_hash = ?", (password, score, hash))
+            else:
+                c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
         elif lenxx == 16:  # An LM hash, either left or right
             c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
             c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
@@ -271,7 +300,10 @@ if not speed_it_up:
     list = c.fetchall()
     count = len(list)
     if count != 0:
-        print("Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count)
+        if count == 1:
+            print("Cracking 1 NT Hash where only LM Hash was cracked (aka lm2ntcrack functionality)")
+        else:
+            print("Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count)
     for pair in list:
         lm_pwd = ""
         if pair[1] is not None:
@@ -280,17 +312,41 @@ if not speed_it_up:
             lm_pwd += pair[2]
         password = crack_it(pair[0], lm_pwd)
         if password is not None:
-            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
+            if pwStren:
+                score = 'No password'
+                if len(password) > 0:
+                    score = zxcvbn(password)['score']
+                    scores += 1
+                    total_score += score
+                    if score == 0:
+                        score = 'Very weak'
+                    elif score == 1:
+                        score = 'Weak'
+                    elif score == 2:
+                        score = 'Average'
+                    elif score == 3:
+                        score = 'Strong'
+                    elif score == 4:
+                        score = 'Very strong'
+                c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\', password_strength = \'' + score + '\' WHERE nt_hash = \'' + pair[0] + '\'')
+            else:
+                c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         count -= 1
 
 # Total number of hashes in the NTDS file
-c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
+if pwStren:
+    c.execute('SELECT username_full,password,LENGTH(password) as plen,password_strength,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
+else:
+    c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 list = c.fetchall()
-
 num_hashes = len(list)
 hbt = HtmlBuilder()
-hbt.add_table_to_html(
-    list, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
+if pwStren:
+    hbt.add_table_to_html(
+        list, ["Username", "Password", "Password Length", "Password Strength (0-4)", "NT Hash", "Only LM Cracked"])
+else:
+    hbt.add_table_to_html(
+        list, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
 filename = hbt.write_html_report("all hashes.html")
 summary_table.append((num_hashes, "Password Hashes",
                       "<a href=\"" + filename + "\">Details</a>"))
@@ -312,6 +368,21 @@ c.execute(
 num_unique_passwords_cracked = c.fetchone()[0]
 summary_table.append((num_unique_passwords_cracked,
                       "Unique Passwords Discovered Through Cracking", None))
+
+# Average password strength
+if pwStren:
+    average = round(total_score / scores)
+    if average == 0:
+        average = 'Very weak'
+    elif average == 1:
+        average = 'Weak'
+    elif average == 2:
+        average = 'Average'
+    elif average == 3:
+        average = 'Strong'
+    elif average == 4:
+        average = 'Very strong'
+    summary_table.append((average, "Average Password Strength", None))
 
 # Percentage of current passwords cracked and percentage of unique passwords cracked
 percent_cracked_unique = num_unique_passwords_cracked / \
