@@ -68,6 +68,8 @@ Alternatively, the group files can simply be a list of users, one per line, in t
 
 [Here](https://gist.githubusercontent.com/joswr1ght/c557f8627832d54458c810e43be9c055/raw/b46e5e976196a20e7ecfe88da7d7a22c747d64e0/groupenumeration.ps1) is a PowerShell one-liner to create group files for all groups.
 
+The Domain Password Audit Tool can collect password strengths for all passwords found.  In order to do this, you must have [zxcvbn](https://github.com/dropbox/zxcvbn) installed.  Once it is installed, the tool will be able to use it to collect password strength statistics for each password and give a generalized statistic for each group you give.  You can install the tool with ```pip install zxcvbn```.
+
 The Domain Password Audit Tool also has the handy feature to finish cracking the LM hashes for any hashes where the NT hash was not cracked. This asssumes that you have used Hashcat to brute force all 7 character passwords with the following command:
 
 ```sh
