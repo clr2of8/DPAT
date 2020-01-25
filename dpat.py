@@ -144,7 +144,7 @@ def progressbar(num, max):
 # Get password score/strength
 
 def getScore(password):
-    score = 'No password'
+    score = ''
     if len(password) > 0:
         try:
             score = str(zxcvbn(password)['score'])
@@ -258,8 +258,6 @@ if not speed_it_up:
     fin = open(cracked_file)
     lines = len(open(cracked_file).read().split('\n')) - 1
     print('Processing hash information from ' + cracked_file)
-    c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1")
-    pwlist = c.fetchall()
     for lineNum, lineT in enumerate(fin):
         line = lineT.rstrip('\r\n')
         colon_index = line.find(":")
@@ -282,10 +280,7 @@ if not speed_it_up:
             password = ""
             password = password.join(l)
         if lenxx == 32:  # An NT hash
-            score = ''
-            if password in pwlist and password != 'NULL':
-                score = getScore(password)
-            c.execute("UPDATE hash_infos SET password = ?, password_strength = ? WHERE nt_hash = ?", (password, score, hash))
+            c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
         elif lenxx == 16:  # An LM hash, either left or right
             c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
             c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
@@ -295,8 +290,6 @@ if not speed_it_up:
     # Do additional LM cracking
     c.execute('SELECT nt_hash,lm_pass_left,lm_pass_right FROM hash_infos WHERE (lm_pass_left is not NULL or lm_pass_right is not NULL) and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by nt_hash')
     list = c.fetchall()
-    c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1")
-    pwlist = c.fetchall()
     count = len(list)
     if count != 0:
         end = 'es'
@@ -312,11 +305,16 @@ if not speed_it_up:
             lm_pwd += pair[2]
         password = crack_it(pair[0], lm_pwd)
         if password is not None:
-            score = ''
-            if password in pwlist and password != 'NULL':
-                score = getScore(password)
-            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\', password_strength = \'' + score + '\' WHERE nt_hash = \'' + pair[0] + '\'')
+            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         progressbar(lineNum, lines)
+
+# Setting password scores in hash_infos database
+
+c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1")
+pwlist = c.fetchall()
+for pw in pwlist:
+    score = getScore(pw)
+    c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ? AND history_index = -1", (str(score), str(pw)))
 
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
