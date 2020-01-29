@@ -125,18 +125,17 @@ c = conn.cursor()
 
 # Change/create progress bar
 def progressbar(num, max):
-    hashtags = int(round((num/max)*50))
-    if hashtags != int(round(((num-1)/max)*50)):
-        print(' '*52 + '\b'*52, end='')
-    if num == max - 1:
-        print('[' + '#'*50 + ']  Finished')
-    elif num == max:
-        pass
-    elif num == 0:
-        print('[' + ' '*50 + ']', end='\b'*52)
-    else:
+    if max > 0:
+        hashtags = int(round((num/max)*50))
         if hashtags != int(round(((num-1)/max)*50)):
-            print("[" + '#'*(hashtags) + ' '*(50-hashtags) + "]", end='\b'*52)
+            print(' '*52 + '\b'*52, end='')
+        if num == max - 1:
+            print('[' + '#'*50 + ']  Finished')
+        elif num == 0:
+            print('[' + ' '*50 + ']', end='\b'*52)
+        else:
+            if hashtags != int(round(((num-1)/max)*50)):
+                print("[" + '#'*(hashtags) + ' '*(50-hashtags) + "]", end='\b'*52)
 
 # Get password score/strength
 def getScore(password):
@@ -203,7 +202,7 @@ if not speed_it_up:
                     user_name = (line.split(":")[1]).strip()
                     users.append(user_domain + "\\" + user_name)
         except:
-            print("Doesn't look like the Group Files are in the form output by PowerView, assuming the files are already in domain\\username list form")
+            print("Doesn't look like the Group Files for are in the form output by PowerView, assuming the files are already in domain\\username list form")
             # If the users array is empty, assume the file was not in the PowerView PowerShell script output format that you get from running:
             # Get-NetGroupMember -GroupName "Enterprise Admins" -Domain "some.domain.com" -DomainController "DC01.some.domain.com" > Enterprise Admins.txt
             # You can list domain controllers for use in the above command with Get-NetForestDomain
@@ -216,7 +215,7 @@ if not speed_it_up:
         groups_users[group[0]] = users
 
     # Read in NTDS file
-    lines = len(open(ntds_file).read().split('\n')) - 1
+    lines = len(open(ntds_file).read().split('\n'))
     fin = open(ntds_file)
     print('Processing hash information from ' + ntds_file)
     for lineNum, line in enumerate(fin):
@@ -239,7 +238,7 @@ if not speed_it_up:
         # Exclude machine accounts (where account name ends in $) by default
         if args.machineaccts or not username.endswith("$"):
             c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash, history_index, history_base_username) VALUES (?,?,?,?,?,?,?,?)", (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash, history_index, history_base_username))
-        progressbar(lineNum, lines)
+        progressbar(lineNum + 1, lines)
     fin.close()
 
     # update group membership flags
@@ -250,9 +249,9 @@ if not speed_it_up:
             c.execute(sql)
 
     # read in POT file
-    fin = open(cracked_file)
-    lines = len(open(cracked_file).read().split('\n')) - 1
     print('Processing hash information from ' + cracked_file)
+    lines = len(open(cracked_file).read().split('\n'))
+    fin = open(cracked_file)
     for lineNum, lineT in enumerate(fin):
         line = lineT.rstrip('\r\n')
         colon_index = line.find(":")
@@ -279,7 +278,7 @@ if not speed_it_up:
         elif lenxx == 16:  # An LM hash, either left or right
             c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
             c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
-        progressbar(lineNum, lines)
+        progressbar(lineNum + 1, lines)
     fin.close()
 
     # Do additional LM cracking
@@ -291,7 +290,6 @@ if not speed_it_up:
         if count == 1:
             end = ''
         print("Cracking " + str(count) + " NT Hash" + end + " where only LM Hash was cracked (aka lm2ntcrack functionality)")
-    lines = count - 1
     for lineNum, pair in enumerate(list):
         lm_pwd = ""
         if pair[1] is not None:
@@ -301,20 +299,18 @@ if not speed_it_up:
         password = crack_it(pair[0], lm_pwd)
         if password is not None:
             c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
-        progressbar(lineNum, lines)
+        progressbar(lineNum, count)
 
 # Setting password scores in hash_infos database
 c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1 AND password IS NOT NULL AND password IS NOT ''")
 pwlist = c.fetchall()
 length = len(pwlist)
 print("Calculating password strength scores")
-times = 0
-for pw in pwlist:
+for lineNum, pw in enumerate(pwlist):
     pw = pw[0]
     score = getScore(pw)
     c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ?", (score, pw))
-    progressbar(times, length)
-    times += 1
+    progressbar(lineNum, length)
 
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
@@ -353,7 +349,7 @@ for group in compare_groups:
     # this list contains the username_full and nt_hash of all users in this group
     list = c.fetchall()
     num_groupmembers = len(list)
-    lines = len(list) - 1
+    lines = len(list)
     new_list = []
     print('Getting group membership details and passwords cracked for ' + str(group[0]))
     for lineNum, tuple in enumerate(list):  # the tuple is (username_full, nt_hash, lm_hash)
@@ -428,6 +424,7 @@ summary_table.append((c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash w
 c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen is not 0 GROUP BY plen ORDER BY plen')
 list = c.fetchall()
 counter = 0
+listLen = len(list)
 print("Gathering password length statistics")
 for lineNum, tuple in enumerate(list):
     length = str(tuple[0])
@@ -439,7 +436,7 @@ for lineNum, tuple in enumerate(list):
     filename = hbt.write_html_report(str(counter) + "length_usernames.html")
     list[counter] += ("<a href=\"" + filename + "\">Details</a>",)
     counter += 1
-    progressbar(lineNum, len(list) - 1)
+    progressbar(lineNum, listLen)
 
 hbt = HtmlBuilder()
 headers = ["Password Length", "Count", "Details"]
@@ -463,6 +460,7 @@ summary_table.append((None, "Top Password Use Stats", "<a href=\"" + filename + 
 # Password Reuse Statistics (based only on NT hash)
 c.execute('SELECT nt_hash, COUNT(nt_hash) as count, password FROM hash_infos WHERE nt_hash is not "31d6cfe0d16ae931b73c59d7e0c089c0" AND history_index = -1 GROUP BY nt_hash ORDER BY count DESC LIMIT 20')
 list = c.fetchall()
+length = len(list)
 counter = 0
 print("Gathering password reuse statistics")
 for lineNum, tuple in enumerate(list):
@@ -477,7 +475,7 @@ for lineNum, tuple in enumerate(list):
     filename = hbt.write_html_report(str(counter) + "reuse_usernames.html")
     list[counter] += ("<a href=\"" + filename + "\">Details</a>",)
     counter += 1
-    progressbar(lineNum, len(list) - 1)
+    progressbar(lineNum, length)
 
 hbt = HtmlBuilder()
 headers = ["NT Hash", "Count", "Password", "Details"]
