@@ -52,7 +52,6 @@ if not os.path.exists(folder_for_html_report):
     os.makedirs(folder_for_html_report)
 
 # show only the first and last char of a password or a few more chars for a hash
-
 def sanitize(pass_or_hash):
     if not args.sanitize:
         return pass_or_hash
@@ -125,24 +124,21 @@ conn.text_factory = str
 c = conn.cursor()
 
 # Change/create progress bar
-
 def progressbar(num, max):
+    hashtags = int(round((num/max)*50))
+    if hashtags != int(round(((num-1)/max)*50)):
+        print(' '*52 + '\b'*52, end='')
     if num == max - 1:
-        print('\b'*100 + ' '*100 + '\b'*100, end='')
         print('[' + '#'*50 + ']  Finished')
     elif num == max:
         pass
     elif num == 0:
-        print('\b'*100 + ' '*100 + '\b'*100, end='')
-        print('[' + ' '*50 + ']', end='')
+        print('[' + ' '*50 + ']', end='\b'*52)
     else:
-        hashtags = int(round((num/max)*50))
         if hashtags != int(round(((num-1)/max)*50)):
-            print('\b'*100 + ' '*100 + '\b'*100, end='')
-            print('[' + '#'*(hashtags) + ' '*(50-hashtags) + ']', end='')
+            print("[" + '#'*(hashtags) + ' '*(50-hashtags) + "]", end='\b'*52)
 
 # Get password score/strength
-
 def getScore(password):
     score = ''
     if len(password) > 0:
@@ -154,7 +150,6 @@ def getScore(password):
 
 # nt2lmcrack functionality
 # the all_casings functionality was taken from https://github.com/BBerastegui/foo/blob/master/casing.py
-
 def all_casings(input_string):
     if not input_string:
         yield ""
@@ -181,8 +176,8 @@ def crack_it(nt_hash, lm_pass):
 if not speed_it_up:
     # Create tables and indices
     c.execute('''CREATE TABLE hash_infos (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, password_strength text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
-    c.execute("CREATE INDEX password_strength ON hash_infos (password_strength);")
     c.execute("CREATE INDEX index_nt_hash ON hash_infos (nt_hash);")
+    c.execute("CREATE INDEX password ON hash_infos (password);")
     c.execute("CREATE INDEX index_lm_hash_left ON hash_infos (lm_hash_left);")
     c.execute("CREATE INDEX index_lm_hash_right ON hash_infos (lm_hash_right);")
     c.execute("CREATE INDEX lm_hash ON hash_infos (lm_hash);")
@@ -309,12 +304,18 @@ if not speed_it_up:
         progressbar(lineNum, lines)
 
 # Setting password scores in hash_infos database
-
-c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1")
+c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1 AND password IS NOT NULL AND password IS NOT ''")
 pwlist = c.fetchall()
+length = len(pwlist)
+print("Calculating password strength scores")
+times = 0
 for pw in pwlist:
+    pw = pw[0]
     score = getScore(pw)
-    c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ? AND history_index = -1", (str(score), str(pw)))
+    c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ?", (score, pw))
+    progressbar(times, length)
+    times += 1
+
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 list = c.fetchall()
