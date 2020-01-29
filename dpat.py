@@ -315,7 +315,6 @@ pwlist = c.fetchall()
 for pw in pwlist:
     score = getScore(pw)
     c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ? AND history_index = -1", (str(score), str(pw)))
-
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 list = c.fetchall()
@@ -521,9 +520,9 @@ if pwStren:
         list.append(group[0])
     for item in list:
         if item == 'Entire Organization':
-            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL AND password_strength IS NOT \"No password\" GROUP BY password_strength")
+            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL GROUP BY password_strength")
         else:
-            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL AND \"" + item + "\" = 1 AND password_strength IS NOT \"No password\" GROUP BY password_strength")
+            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL AND \"" + item + "\" = 1 GROUP BY password_strength")
         strengths = c.fetchall()
         total = 0
         amount = 0
