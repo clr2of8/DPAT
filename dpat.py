@@ -52,7 +52,6 @@ if not os.path.exists(folder_for_html_report):
     os.makedirs(folder_for_html_report)
 
 # show only the first and last char of a password or a few more chars for a hash
-
 def sanitize(pass_or_hash):
     if not args.sanitize:
         return pass_or_hash
@@ -125,26 +124,23 @@ conn.text_factory = str
 c = conn.cursor()
 
 # Change/create progress bar
-
 def progressbar(num, max):
-    if num == 0:
-        print('\b'*100 + ' '*100 + '\b'*100, end='')
-        print('[' + ' '*50 + ']', end='')
-    elif num == max - 1:
-        print('\b'*100 + ' '*100 + '\b'*100, end='')
+    hashtags = int(round((num/max)*50))
+    if hashtags != int(round(((num-1)/max)*50)):
+        print(' '*52 + '\b'*52, end='')
+    if num == max - 1:
         print('[' + '#'*50 + ']  Finished')
     elif num == max:
         pass
+    elif num == 0:
+        print('[' + ' '*50 + ']', end='\b'*52)
     else:
-        hashtags = int(round((num/max)*50))
         if hashtags != int(round(((num-1)/max)*50)):
-            print('\b'*100 + ' '*100 + '\b'*100, end='')
-            print('[' + '#'*(hashtags) + ' '*(50-hashtags) + ']', end='')
+            print("[" + '#'*(hashtags) + ' '*(50-hashtags) + "]", end='\b'*52)
 
 # Get password score/strength
-
 def getScore(password):
-    score = 'No password'
+    score = ''
     if len(password) > 0:
         try:
             score = str(zxcvbn(password)['score'])
@@ -154,7 +150,6 @@ def getScore(password):
 
 # nt2lmcrack functionality
 # the all_casings functionality was taken from https://github.com/BBerastegui/foo/blob/master/casing.py
-
 def all_casings(input_string):
     if not input_string:
         yield ""
@@ -181,8 +176,8 @@ def crack_it(nt_hash, lm_pass):
 if not speed_it_up:
     # Create tables and indices
     c.execute('''CREATE TABLE hash_infos (username_full text collate nocase, username text collate nocase, lm_hash text, lm_hash_left text, lm_hash_right text, nt_hash text, password text, password_strength text, lm_pass_left text, lm_pass_right text, only_lm_cracked boolean, history_index int, history_base_username text)''')
-    c.execute("CREATE INDEX password_strength ON hash_infos (password_strength);")
     c.execute("CREATE INDEX index_nt_hash ON hash_infos (nt_hash);")
+    c.execute("CREATE INDEX password ON hash_infos (password);")
     c.execute("CREATE INDEX index_lm_hash_left ON hash_infos (lm_hash_left);")
     c.execute("CREATE INDEX index_lm_hash_right ON hash_infos (lm_hash_right);")
     c.execute("CREATE INDEX lm_hash ON hash_infos (lm_hash);")
@@ -224,7 +219,6 @@ if not speed_it_up:
     lines = len(open(ntds_file).read().split('\n')) - 1
     fin = open(ntds_file)
     print('Processing hash information from ' + ntds_file)
-    start_time = time.time()
     for lineNum, line in enumerate(fin):
         vals = line.rstrip("\n").split(':')
         if len(vals) == 1:
@@ -259,7 +253,6 @@ if not speed_it_up:
     fin = open(cracked_file)
     lines = len(open(cracked_file).read().split('\n')) - 1
     print('Processing hash information from ' + cracked_file)
-    start_time = time.time()
     for lineNum, lineT in enumerate(fin):
         line = lineT.rstrip('\r\n')
         colon_index = line.find(":")
@@ -282,8 +275,7 @@ if not speed_it_up:
             password = ""
             password = password.join(l)
         if lenxx == 32:  # An NT hash
-            score = getScore(password)
-            c.execute("UPDATE hash_infos SET password = ?, password_strength = ? WHERE nt_hash = ?", (password, score, hash))
+            c.execute("UPDATE hash_infos SET password = ? WHERE nt_hash = ?", (password, hash))
         elif lenxx == 16:  # An LM hash, either left or right
             c.execute("UPDATE hash_infos SET lm_pass_left = ? WHERE lm_hash_left = ?", (password, hash))
             c.execute("UPDATE hash_infos SET lm_pass_right = ? WHERE lm_hash_right = ?", (password, hash))
@@ -300,7 +292,6 @@ if not speed_it_up:
             end = ''
         print("Cracking " + str(count) + " NT Hash" + end + " where only LM Hash was cracked (aka lm2ntcrack functionality)")
     lines = count - 1
-    start_time = time.time()
     for lineNum, pair in enumerate(list):
         lm_pwd = ""
         if pair[1] is not None:
@@ -309,9 +300,21 @@ if not speed_it_up:
             lm_pwd += pair[2]
         password = crack_it(pair[0], lm_pwd)
         if password is not None:
-            score = getScore(password)
-            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\', password_strength = \'' + score + '\' WHERE nt_hash = \'' + pair[0] + '\'')
+            c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         progressbar(lineNum, lines)
+
+# Setting password scores in hash_infos database
+c.execute("SELECT DISTINCT password FROM hash_infos WHERE history_index = -1 AND password IS NOT NULL AND password IS NOT ''")
+pwlist = c.fetchall()
+length = len(pwlist)
+print("Calculating password strength scores")
+times = 0
+for pw in pwlist:
+    pw = pw[0]
+    score = getScore(pw)
+    c.execute("UPDATE hash_infos SET password_strength = ? WHERE password = ?", (score, pw))
+    progressbar(times, length)
+    times += 1
 
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
@@ -353,7 +356,6 @@ for group in compare_groups:
     lines = len(list) - 1
     new_list = []
     print('Getting group membership details and passwords cracked for ' + str(group[0]))
-    start_time = time.time()
     for lineNum, tuple in enumerate(list):  # the tuple is (username_full, nt_hash, lm_hash)
         c.execute("SELECT username_full FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1")
         users_list = c.fetchall()
@@ -427,7 +429,6 @@ c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE
 list = c.fetchall()
 counter = 0
 print("Gathering password length statistics")
-start_time = time.time()
 for lineNum, tuple in enumerate(list):
     length = str(tuple[0])
     c.execute('SELECT username FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ' + length)
@@ -463,7 +464,6 @@ summary_table.append((None, "Top Password Use Stats", "<a href=\"" + filename + 
 c.execute('SELECT nt_hash, COUNT(nt_hash) as count, password FROM hash_infos WHERE nt_hash is not "31d6cfe0d16ae931b73c59d7e0c089c0" AND history_index = -1 GROUP BY nt_hash ORDER BY count DESC LIMIT 20')
 list = c.fetchall()
 counter = 0
-start_time = time.time()
 print("Gathering password reuse statistics")
 for lineNum, tuple in enumerate(list):
     c.execute('SELECT username FROM hash_infos WHERE nt_hash = \"' + tuple[0] + '\" AND history_index = -1')
@@ -521,9 +521,9 @@ if pwStren:
         list.append(group[0])
     for item in list:
         if item == 'Entire Organization':
-            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE password_strength IS NOT NULL AND password_strength IS NOT \"No password\" GROUP BY password_strength")
+            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL GROUP BY password_strength")
         else:
-            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE password_strength IS NOT NULL AND \"" + item + "\" = 1 AND password_strength IS NOT \"No password\" GROUP BY password_strength")
+            c.execute("SELECT password_strength, COUNT(*) FROM hash_infos WHERE history_index = -1 AND password_strength IS NOT NULL AND \"" + item + "\" = 1 GROUP BY password_strength")
         strengths = c.fetchall()
         total = 0
         amount = 0
