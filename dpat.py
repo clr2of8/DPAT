@@ -525,7 +525,21 @@ if pwStren:
         for num in all:
             if num not in found:
                 strengths.insert(num, [num, 0])
-        list[list.index(item)] = [item, str(round(strengths[0][1]/float(amount) * 100, 1)) + '%', str(round(strengths[1][1]/float(amount) * 100, 1)) + '%', str(round(strengths[2][1]/float(amount) * 100, 1)) + '%', str(round(strengths[3][1]/float(amount) * 100, 1)) + '%', str(round(strengths[4][1]/float(amount) * 100, 1)) + '%', str(round(total/float(amount) * 25))]
+        if amount != 0:
+            percent1 = str(round(strengths[0][1]/float(amount) * 100, 1))
+            percent2 = str(round(strengths[1][1]/float(amount) * 100, 1))
+            percent3 = str(round(strengths[2][1]/float(amount) * 100, 1))
+            percent4 = str(round(strengths[3][1]/float(amount) * 100, 1))
+            percent5 = str(round(strengths[4][1]/float(amount) * 100, 1))
+            percent6 = str(round(total/float(amount) * 25))
+        else:
+            percent1 = 0
+            percent2 = 0
+            percent3 = 0
+            percent4 = 0
+            percent5 = 0
+            percent6 = 0
+        list[list.index(item)] = [item, percent1 + '%', percent2 + '%', percent3 + '%', percent4 + '%', percent5 + '%', percent6]
     hbt.add_table_to_html(list, ["Password Strengths by Group", "Very Weak", "Weak", "Average", "Strong", "Very Strong", "Average Password Strength 0-100"])
     filename = hbt.write_html_report("password strength.html")
     summary_table.append((None, "Password Strength", "<a href=\"" + filename + "\">Details</a>"))
