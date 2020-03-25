@@ -516,6 +516,12 @@ if pwStren:
         strengths = c.fetchall()
         total = 0
         amount = 0
+        percent1 = '0'
+        percent2 = '0'
+        percent3 = '0'
+        percent4 = '0'
+        percent5 = '0'
+        percent6 = '0'
         all = [0,1,2,3,4]
         found = []
         for strength in strengths:
@@ -532,13 +538,7 @@ if pwStren:
             percent4 = str(round(strengths[3][1]/float(amount) * 100, 1))
             percent5 = str(round(strengths[4][1]/float(amount) * 100, 1))
             percent6 = str(round(total/float(amount) * 25))
-        else:
-            percent1 = 0
-            percent2 = 0
-            percent3 = 0
-            percent4 = 0
-            percent5 = 0
-            percent6 = 0
+        amount = str(amount)
         list[list.index(item)] = [item, percent1 + '%', percent2 + '%', percent3 + '%', percent4 + '%', percent5 + '%', percent6]
     hbt.add_table_to_html(list, ["Password Strengths by Group", "Very Weak", "Weak", "Average", "Strong", "Very Strong", "Average Password Strength 0-100"])
     filename = hbt.write_html_report("password strength.html")
@@ -565,8 +565,7 @@ while True:
     try:
         response = input().lower().rstrip('\r') 
         if ((response is "") or (strtobool(response))):
-            webbrowser.open(os.path.join("file://" + os.getcwd(),
-                                         folder_for_html_report, filename_for_html_report))
+            webbrowser.open(os.path.join("file://" + os.getcwd(), folder_for_html_report, filename_for_html_report))
             break
         else:
             break
