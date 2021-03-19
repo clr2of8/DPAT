@@ -517,7 +517,7 @@ print('Would you like to open the report now? [Y/n]')
 while True:
     try:
         response = input().lower().rstrip('\r')
-        if ((response is "") or (strtobool(response))):
+        if ((response == "") or (strtobool(response))):
             webbrowser.open(os.path.join("file://" + os.getcwd(),
                                          folder_for_html_report, filename_for_html_report))
             break
