@@ -114,7 +114,7 @@ class HtmlBuilder:
 
     def write_html_report(self, filename):
         f = open(os.path.join(folder_for_html_report, filename), "w")
-        copyfile('report.css', os.path.join(folder_for_html_report, "report.css"))
+        copyfile(os.path.join(os.path.dirname(__file__), "report.css"), os.path.join(folder_for_html_report, "report.css"))
         f.write(self.get_html())
         f.close()
         return filename
