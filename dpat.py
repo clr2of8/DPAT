@@ -191,17 +191,22 @@ if not speed_it_up:
                 if "MemberName" in line:
                     user_name = (line.split(":")[1]).strip()
                     users.append(user_domain + "\\" + user_name)
-        except:
-            print("Doesn't look like the Group Files are in the form output by PowerView, assuming the files are already in domain\\username list form")
-            # If the users array is empty, assume the file was not in the PowerView PowerShell script output format that you get from running:
-            # Get-NetGroupMember -GroupName "Enterprise Admins" -Domain "some.domain.com" -DomainController "DC01.some.domain.com" > Enterprise Admins.txt
-            # You can list domain controllers for use in the above command with Get-NetForestDomain
-            if len(users) == 0:
-                fing = open(group[1])
-                users = []
+            if len(users) != 0:
+                fing.close()
+            else:
+                print("Doesn't look like the Group Files are in the form output by PowerView, assuming the files are already in domain\\username list form")
+                # If the users array is empty, assume the file was not in the PowerView PowerShell script output format that you get from running:
+                # Get-NetGroupMember -GroupName "Enterprise Admins" -Domain "some.domain.com" -DomainController "DC01.some.domain.com" > Enterprise Admins.txt
+                # You can list domain controllers for use in the above command with Get-NetForestDomain
+            
+                fing.seek(0)
+                # Reset File pointer to first line and try again
                 for line in fing:
                     users.append(line.rstrip("\n"))
                 fing.close()
+        except:
+            fing.close()
+            print("unknown exception while processing group file(s)")
         groups_users[group[0]] = users
 
     # Read in NTDS file
