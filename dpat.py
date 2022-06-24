@@ -41,6 +41,7 @@ parser.add_argument('-s', '--sanitize', help='Sanitize the report by partially r
 parser.add_argument('-g', '--grouplists', help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\\username or it can be in the format output by using the PowerView Get-NetGroupMember function. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
 parser.add_argument('-m', '--machineaccts', help='Include machine accounts when calculating statistics',
                     default=False, required=False, action='store_true')
+parser.add_argument('-k', '--krbtgt', help='Include the krbtgt account', default=False, required=False, action='store_true')
 args = parser.parse_args()
 
 ntds_file = args.ntdsfile
@@ -224,7 +225,8 @@ if not speed_it_up:
             history_base_username = results.group(1)
             history_index = results.group(2)
         # Exclude machine accounts (where account name ends in $) by default
-        if args.machineaccts or not username.endswith("$"):
+        # Exclude krbtgt account by default to protect this infrequently changing password from unnecesary disclosure, issue #10
+        if args.machineaccts or not username.endswith("$") and args.krbtgt or not username == "krbtgt":
             c.execute("INSERT INTO hash_infos (username_full, username, lm_hash , lm_hash_left , lm_hash_right , nt_hash, history_index, history_base_username) VALUES (?,?,?,?,?,?,?,?)",
                     (usernameFull, username, lm_hash, lm_hash_left, lm_hash_right, nt_hash, history_index, history_base_username))
     fin.close()
