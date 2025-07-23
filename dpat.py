@@ -38,7 +38,9 @@ parser.add_argument('-w', '--writedb', help='Write the SQLite database info to d
                     filename_for_db_on_disk + '"', default=False, required=False, action='store_true')
 parser.add_argument('-s', '--sanitize', help='Sanitize the report by partially redacting passwords and hashes. Prepends the report directory with \"Sanitized - \"',
                     default=False, required=False, action='store_true')
-parser.add_argument('-g', '--grouplists', help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\\username or it can be in the format output by using the PowerView Get-NetGroupMember function. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
+parser.add_argument('-g', '--groupsdirectory', help='The path to the directory containing files that contain lists of usernames in particular groups. The group ' +
+                    'names will be taken from the first line in each file. The username list must be in the same format as found in the NTDS file such as ' +
+                    'some.ad.domain.com\\username', required=False)
 parser.add_argument('-m', '--machineaccts', help='Include machine accounts when calculating statistics',
                     default=False, required=False, action='store_true')
 parser.add_argument('-k', '--krbtgt', help='Include the krbtgt account', default=False, required=False, action='store_true')
@@ -50,18 +52,42 @@ filename_for_html_report = args.outputfile
 folder_for_html_report = args.reportdirectory
 if args.sanitize:
     folder_for_html_report = folder_for_html_report + " - Sanitized"
-if args.grouplists is not None:
-    for groupfile in args.grouplists:
-        compare_groups.append(
-            (os.path.splitext(os.path.basename(groupfile))[0], groupfile))
+if args.groupsdirectory is not None:
+    group_dir = os.path.normpath(args.groupsdirectory)
+    print(f"[+] Groups directory specified: {group_dir}")
+
+    if os.path.isdir(group_dir):
+        print(f"[+] Loading group files from directory: {group_dir}")
+        for fname in sorted(os.listdir(group_dir)):
+            fpath = os.path.join(group_dir, fname)
+            print(f"  ├─ Processing file: {fname}")
+            if os.path.isfile(fpath):
+                try:
+                    with open(fpath, 'r', encoding='cp1252') as f:
+                        first_line = f.readline().strip()
+                        print(f"  ├─ First line: '{first_line}'")
+                        if first_line:
+                            compare_groups.append((first_line, fpath))
+                            print(f"  └─ Loaded group '{first_line}' from file: {fname}")
+                        else:
+                            print(f"  └─ Skipped empty file: {fname}")
+                except Exception as e:
+                    print(f"[!] Error reading file {fpath}: {e}")
+    else:
+        print(f"[!] Specified groupsdirectory is not a valid directory: {group_dir}")    
 
 # create report folder if it doesn't already exist
 if not os.path.exists(folder_for_html_report):
     os.makedirs(folder_for_html_report)
 
+# percentage calculation helper function
+def pct(part, whole):
+    try:
+        return round((part / whole) * 100, 2)
+    except ZeroDivisionError:
+        return 0.0
+
 # show only the first and last char of a password or a few more chars for a hash
-
-
 def sanitize(pass_or_hash):
     if not args.sanitize:
         return pass_or_hash
@@ -84,35 +110,40 @@ class HtmlBuilder:
         self.bodyStr += str + "</br>\n"
 
     def get_html(self):
-        return "<!DOCTYPE html>\n" + "<html>\n<head>\n<link rel='stylesheet' href='report.css'>\n</head>\n" + "<body>\n" + self.bodyStr + "</html>\n" + "</body>\n"
+        return (
+            "<!DOCTYPE html>\n<html>\n<head>\n"
+            "<link rel='stylesheet' href='report.css'>\n</head>\n<body>\n"
+            + self.bodyStr +
+            "\n</body>\n</html>\n"
+        )
 
-    def add_table_to_html(self, list, headers=[], col_to_not_escape=None):
-        html = '<table border="1">\n'
-        html += "<tr>"
+    def add_table_to_html(self, rows, headers=(), cols_to_not_escape=()):
+        """
+        cols_to_not_escape can be an int, list/tuple/set of ints, or None.
+        """
+        if cols_to_not_escape is None:
+            cols_to_not_escape = set()
+        elif isinstance(cols_to_not_escape, int):
+            cols_to_not_escape = {cols_to_not_escape}
+        else:
+            cols_to_not_escape = set(cols_to_not_escape)
+
+        html_str = '<table border="1">\n<tr>'
         for header in headers:
-            if header is not None:
-                html += "<th>" + str(header) + "</th>"
-            else:
-                html += "<th></th>"
-        html += "</tr>\n"
-        for line in list:
-            html += "<tr>"
-            col_num = 0
-            for column in line:
-                if column is not None:
-                    col_data = column
-                    if ((("Password") in headers[col_num] and not "Password Length" in headers[col_num]) or ("Hash" in headers[col_num]) or ("History" in headers[col_num])):
-                        col_data = sanitize(column)
-                    if col_num != col_to_not_escape:
-                        col_data = htmllib.escape(str(col_data))
-                    html += "<td>" + col_data + "</td>"
-                else:
-                    html += "<td></td>"
-                col_num += 1
-            html += "</tr>\n"
-        html += "</table>"
-        self.build_html_body_string(html)
+            html_str += f"<th>{'' if header is None else header}</th>"
+        html_str += "</tr>\n"
 
+        for row in rows:
+            html_str += "<tr>"
+            for idx, cell in enumerate(row):
+                cell_data = "" if cell is None else str(cell)
+                if idx not in cols_to_not_escape:
+                    cell_data = htmllib.escape(cell_data)
+                html_str += f"<td>{cell_data}</td>"
+            html_str += "</tr>\n"
+        html_str += "</table>"
+        self.build_html_body_string(html_str)
+        
     def write_html_report(self, filename):
         f = open(os.path.join(folder_for_html_report, filename), "w")
         copyfile(os.path.join(os.path.dirname(__file__), "report.css"), os.path.join(folder_for_html_report, "report.css"))
@@ -137,8 +168,6 @@ c = conn.cursor()
 
 # nt2lmcrack functionality
 # the all_casings functionality was taken from https://github.com/BBerastegui/foo/blob/master/casing.py
-
-
 def all_casings(input_string):
     if not input_string:
         yield ""
@@ -316,61 +345,95 @@ summary_table.append((num_unique_passwords_cracked,
                       "Unique Passwords Discovered Through Cracking", None))
 
 # Percentage of current passwords cracked and percentage of unique passwords cracked
-percent_cracked_unique = num_unique_passwords_cracked / \
-    float(num_unique_nt_hashes)*100
-percent_all_cracked = num_passwords_cracked/float(num_hashes)*100
+percent_cracked_unique = pct(num_unique_passwords_cracked, num_unique_nt_hashes)
+percent_all_cracked = pct(num_passwords_cracked, num_hashes)
 summary_table.append(("%0.1f" % percent_all_cracked,
                       "Percent of Current Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
 summary_table.append(("%0.1f" % percent_cracked_unique,
                       "Percent of Unique Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
 
 # Group Membership Details and number of passwords cracked for each group
+# We'll collect rows for the single groups page here:
+group_summary_rows = []
+group_page_headers = ("Group Name",
+                      "# Members",
+                      "# Passwords Cracked",
+                      "% Cracked"
+                      "Members Details",
+                      "Cracked PW Details")
+
+# --- GROUP MEMBERSHIP DETAILS LOOP ---
 for group in compare_groups:
-    c.execute(
-        "SELECT username_full,nt_hash FROM hash_infos WHERE \"" + group[0] + "\" = 1 AND history_index = -1")
-    # this list contains the username_full and nt_hash of all users in this group
-    list = c.fetchall()
-    num_groupmembers = len(list)
-    new_list = []
-    for tuple in list:  # the tuple is (username_full, nt_hash, lm_hash)
-        c.execute(
-            "SELECT username_full FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1")
+    group_name = group[0]
+
+    # 1) Build “members of group” table/page
+    c.execute("SELECT username_full, nt_hash FROM hash_infos WHERE \"%s\" = 1 AND history_index = -1" % group_name)
+    member_rows = c.fetchall()
+    num_groupmembers = len(member_rows)
+
+    detailed_member_rows = []
+    for username_full, nt_hash in member_rows:
+        # Users sharing this hash
+        c.execute("SELECT username_full FROM hash_infos WHERE nt_hash = \"%s\" AND history_index = -1" % nt_hash)
         users_list = c.fetchall()
-        if len(users_list) < 30:
-            string_of_users = (', '.join(''.join(elems)
-                                         for elems in users_list))
-            new_tuple = tuple + (string_of_users,)
+        share_cnt = len(users_list)
+        if share_cnt < 30:
+            shared_users_str = ', '.join(''.join(u) for u in users_list)
         else:
-            new_tuple = tuple + ("Too Many to List",)
-        new_tuple += (len(users_list),)
-        c.execute(
-            "SELECT password,lm_hash FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1 LIMIT 1")
-        result = c.fetchone()
-        new_tuple += (result[0],)
-        # Is the LM Hash stored for this user?
-        if result[1] != "aad3b435b51404eeaad3b435b51404ee":
-            new_tuple += ("Yes",)
-        else:
-            new_tuple += ("No",)
-        new_list.append(new_tuple)
-    headers = ["Username", "NT Hash", "Users Sharing this Hash",
-               "Share Count", "Password", "Non-Blank LM Hash?"]
-    hbt = HtmlBuilder()
-    hbt.add_table_to_html(new_list, headers)
-    filename = hbt.write_html_report(group[0] + " members.html")
-    summary_table.append((num_groupmembers, "Members of \"%s\" group" %
-                          group[0], "<a href=\"" + filename + "\">Details</a>"))
-    c.execute("SELECT username_full, LENGTH(password) as plen, password, only_lm_cracked FROM hash_infos WHERE \"" +
-              group[0] + "\" = 1 and password is not NULL and password is not '' ORDER BY plen")
-    group_cracked_list = c.fetchall()
-    num_groupmembers_cracked = len(group_cracked_list)
-    headers = ["Username of \"" + group[0] + "\" Member",
-               "Password Length", "Password", "Only LM Cracked"]
-    hbt = HtmlBuilder()
-    hbt.add_table_to_html(group_cracked_list, headers)
-    filename = hbt.write_html_report(group[0] + " cracked passwords.html")
-    summary_table.append((num_groupmembers_cracked, "\"%s\" Passwords Cracked" %
-                          group[0], "<a href=\"" + filename + "\">Details</a>"))
+            shared_users_str = "Too Many to List"
+
+        # Pull password + LM info
+        c.execute("SELECT password, lm_hash FROM hash_infos WHERE nt_hash = \"%s\" AND history_index = -1 LIMIT 1" % nt_hash)
+        pw, lm = c.fetchone()
+        lm_present = "Yes" if lm != "aad3b435b51404eeaad3b435b51404ee" else "No"
+
+        detailed_member_rows.append((username_full, nt_hash, shared_users_str, share_cnt, pw, lm_present))
+
+    member_headers = ["Username", "NT Hash", "Users Sharing this Hash", "Share Count", "Password", "Non-Blank LM Hash?"]
+    hbt_members = HtmlBuilder()
+    hbt_members.add_table_to_html(detailed_member_rows, member_headers)
+    members_filename = hbt_members.write_html_report(f"{group_name}_members.html")
+
+    # 2) Build “cracked passwords for group” table/page
+    c.execute("""SELECT username_full, LENGTH(password) as plen, password, only_lm_cracked
+                 FROM hash_infos
+                 WHERE "%s" = 1 AND password is not NULL AND password != '' AND history_index = -1
+                 ORDER BY plen""" % group_name)
+    cracked_rows = c.fetchall()
+    num_groupmembers_cracked = len(cracked_rows)
+
+    cracked_headers = [f'Username of "{group_name}" Member', "Password Length", "Password", "Only LM Cracked"]
+    hbt_cracked = HtmlBuilder()
+    hbt_cracked.add_table_to_html(cracked_rows, cracked_headers)
+    cracked_filename = hbt_cracked.write_html_report(f"{group_name}_cracked_passwords.html")
+
+    # 3) Add a single row for THIS GROUP to the groups summary page list
+    percent_cracked = pct(num_groupmembers_cracked, num_groupmembers)
+
+    group_summary_rows.append((
+        group_name,
+        num_groupmembers,
+        num_groupmembers_cracked,
+        f"{percent_cracked}%",                          # ← new value
+        f'<a href="{members_filename}">Details</a>',
+        f'<a href="{cracked_filename}">Details</a>'
+    ))
+
+# --- AFTER THE LOOP: WRITE GROUPS PAGE ---
+hbt_groups = HtmlBuilder()
+hbt_groups.add_table_to_html(
+        group_summary_rows,
+        headers=group_page_headers,
+        cols_to_not_escape=(4, 5)          # ← keep anchor tags alive
+)
+groups_page_filename = hbt_groups.write_html_report("groups_stats.html")
+
+# --- ADD ONE ROW TO THE MASTER SUMMARY TABLE ---
+summary_table.append((
+    None,
+    "Group Cracking Statistics",
+    f'<a href="{groups_page_filename}">Details</a>'
+))
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
