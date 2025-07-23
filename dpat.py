@@ -6,16 +6,12 @@ import os
 import re
 import argparse
 import sqlite3
-import sys
 from shutil import copyfile
-try:
-    import html as htmllib
-except ImportError:
-    import cgi as htmllib  
+import html
 import binascii
 import hashlib
 from distutils.util import strtobool
-from pprint import pprint
+from typing import Iterable, Optional, Sequence, Union
 filename_for_html_report = "_DomainPasswordAuditReport.html"
 folder_for_html_report = "DPAT Report"
 filename_for_db_on_disk = "pass_audit.db"
@@ -106,21 +102,27 @@ def sanitize(pass_or_hash):
 class HtmlBuilder:
     bodyStr = ""
 
-    def build_html_body_string(self, str):
-        self.bodyStr += str + "</br>\n"
+    def build_html_body_string(self, s: str):
+        self.bodyStr += s + "\n<div class='section-space'></div>\n"
 
     def get_html(self):
         return (
             "<!DOCTYPE html>\n<html>\n<head>\n"
-            "<link rel='stylesheet' href='report.css'>\n</head>\n<body>\n"
+            "<meta charset='utf-8'>\n<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+            "<link rel='stylesheet' href='report.css'>\n"
+            "<title>DPAT Report</title>\n"
+            "</head>\n<body>\n"
             + self.bodyStr +
             "\n</body>\n</html>\n"
         )
 
-    def add_table_to_html(self, rows, headers=(), cols_to_not_escape=()):
-        """
-        cols_to_not_escape can be an int, list/tuple/set of ints, or None.
-        """
+    def add_table_to_html(
+        self,
+        rows: Iterable[Sequence[object]],
+        headers: Sequence[str] = (),
+        cols_to_not_escape: Union[int, Sequence[int], None] = (),
+        caption: Optional[str] = None
+    ):
         if cols_to_not_escape is None:
             cols_to_not_escape = set()
         elif isinstance(cols_to_not_escape, int):
@@ -128,29 +130,35 @@ class HtmlBuilder:
         else:
             cols_to_not_escape = set(cols_to_not_escape)
 
-        html_str = '<table border="1">\n<tr>'
-        for header in headers:
-            html_str += f"<th>{'' if header is None else header}</th>"
-        html_str += "</tr>\n"
+        out = ["<div class='table-wrap'>", "<table class='report'>"]
+        if caption:
+            out.append(f"<caption>{html.escape(caption)}</caption>")
 
+        # Header
+        out.append("<thead><tr>")
+        for h in headers:
+            out.append(f"<th>{'' if h is None else html.escape(str(h))}</th>")
+        out.append("</tr></thead>")
+
+        # Body
+        out.append("<tbody>")
         for row in rows:
-            html_str += "<tr>"
+            out.append("<tr>")
             for idx, cell in enumerate(row):
                 cell_data = "" if cell is None else str(cell)
                 if idx not in cols_to_not_escape:
-                    cell_data = htmllib.escape(cell_data)
-                html_str += f"<td>{cell_data}</td>"
-            html_str += "</tr>\n"
-        html_str += "</table>"
-        self.build_html_body_string(html_str)
-        
-    def write_html_report(self, filename):
-        f = open(os.path.join(folder_for_html_report, filename), "w")
-        copyfile(os.path.join(os.path.dirname(__file__), "report.css"), os.path.join(folder_for_html_report, "report.css"))
-        f.write(self.get_html())
-        f.close()
-        return filename
+                    cell_data = html.escape(cell_data)
+                out.append(f"<td>{cell_data}</td>")
+            out.append("</tr>")
+        out.append("</tbody></table></div>")
+        self.build_html_body_string("".join(out))
 
+    def write_html_report(self, filename):
+        with open(os.path.join(folder_for_html_report, filename), "w", encoding="utf-8") as f:
+            copyfile(os.path.join(os.path.dirname(__file__), "report.css"),
+                     os.path.join(folder_for_html_report, "report.css"))
+            f.write(self.get_html())
+        return filename
 
 hb = HtmlBuilder()
 summary_table = []
@@ -358,7 +366,7 @@ group_summary_rows = []
 group_page_headers = ("Group Name",
                       "# Members",
                       "# Passwords Cracked",
-                      "% Cracked"
+                      "% Cracked",
                       "Members Details",
                       "Cracked PW Details")
 
@@ -447,17 +455,16 @@ summary_table.append((c.fetchone()[0], "Unique LM Hashes (Non-blank)", None))
 c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") AND history_index = -1 and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
 list = c.fetchall()
 num_lm_hashes_cracked_where_nt_hash_not_cracked = len(list)
-output = "WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
+output = "<div class='text-left'>WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
 if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hbt = HtmlBuilder()
     headers = ["LM Hash", "Left Portion of Password",
                "Right Portion of Password", "NT Hash"]
     hbt.add_table_to_html(list, headers)
     filename = hbt.write_html_report("lm_noncracked.html")
-    hb.build_html_body_string(
-        output + ' <a href="' + filename + '">Details</a>')
-    output2 = "</br> Cracking these to their 7-character upcased representation is easy with Hashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this Hashcat command to crack all LM hashes:</br> <strong>./hashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
-    hb.build_html_body_string(output2)
+    output += ' <a href="' + filename + '">Details</a>'
+    output += "</br></br>Cracking these to their 7-character upcased representation is easy with Hashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this Hashcat command to crack all LM hashes:</br> <strong>./hashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
+    hb.build_html_body_string(output)
 
 # Count and List of passwords that were only able to be cracked because the LM hash was available, includes usernames
 c.execute('SELECT username_full,password,LENGTH(password) as plen,only_lm_cracked FROM hash_infos WHERE only_lm_cracked = 1 ORDER BY plen AND history_index = -1')

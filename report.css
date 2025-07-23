@@ -1,26 +1,141 @@
-table, th, td {
-    border: 1px solid black;
-    border-collapse: collapse;
-    text-align: center;
+/* ---------- Base / Theme ---------- */
+:root {
+  --bg: #f9fafb;
+  --fg: #1f2937;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --border: #e5e7eb;
+  --border-strong: #9ca3af;
+  --row-alt: #f3f4f6;
+  --row-hover: #e0e7ff;
+  --shadow-1: 0 7px 8px -4px rgba(0,0,0,.1),0 12px 17px 2px rgba(0,0,0,.06),0 5px 22px 4px rgba(0,0,0,.04);
+  --font-main: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
-th, td {
-    padding: 5px;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --fg: #e5e7eb;
+    --accent: #60a5fa;
+    --accent-light: #1e3a8a;
+    --border: #374151;
+    --border-strong: #6b7280;
+    --row-alt: #1f2937;
+    --row-hover: #374151;
+    --shadow-1: 0 7px 8px -4px rgba(0,0,0,.6),0 12px 17px 2px rgba(0,0,0,.4),0 5px 22px 4px rgba(0,0,0,.3);
+  }
 }
 
-th {
-    border-bottom-width: 2px;
+/* ---------- Global ---------- */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-main);
+  font-size: 16px;
+  line-height: 1.4;
 }
 
 body {
-    justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px 120px;
 }
 
-table {
-    box-shadow: 0 7px 8px -4px rgba(0,0,0,.2),0 12px 17px 2px rgba(0,0,0,.14),0 5px 22px 4px rgba(0,0,0,.12)!important;
-    margin-top: 30px;
+/* optional global link style */
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover,
+a:focus {
+  text-decoration: underline;
 }
 
-tr:nth-child(even) {
-    background: #d1d3d2;
+/* spacing breaker instead of <br> spam */
+.section-space {
+  height: 32px;
 }
+
+/* ---------- Table styles ---------- */
+.table-wrap {
+  width: 100%;
+  max-width: 1400px;
+  overflow-x: auto;
+  box-shadow: var(--shadow-1);
+  border-radius: 10px;
+  background: white;
+}
+@media (prefers-color-scheme: dark) {
+  .table-wrap { background: #1f2937; }
+}
+
+table.report {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.report caption {
+  text-align: left;
+  font-weight: 600;
+  padding: 12px 16px 8px;
+  color: var(--fg);
+}
+
+table.report thead th {
+  position: sticky;
+  top: 0;
+  background: var(--accent-light);
+  color: var(--fg);
+  border-bottom: 2px solid var(--border-strong);
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 0.9rem;
+  z-index: 1;
+}
+
+table.report tbody tr:nth-child(even) {
+  background: var(--row-alt);
+}
+table.report tbody tr:hover {
+  background: var(--row-hover);
+}
+
+table.report td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: center;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+th, td {
+  border: 1px solid var(--border);
+}
+
+.text-left { text-align:left; max-width:1400px; margin:0 auto 24px; }
+
+/* ---------- Pills / badges ---------- */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.badge-gray {
+  background: var(--border);
+  color: var(--fg);
+}
+
+/* ---------- Small utilities ---------- */
+.mono { font-family: var(--font-mono); font-size: 0.8rem; }
+.right { text-align: right; }
+.left { text-align: left; }
+.nowrap { white-space: nowrap; }
