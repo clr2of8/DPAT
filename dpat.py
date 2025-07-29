@@ -206,7 +206,7 @@ class HtmlBuilder:
 
 hb = HtmlBuilder()
 summary_table = []
-summary_table_headers = ("Count", "Description", "More Info")
+summary_table_headers = ("Count", "Percent", "Description", "More Info")
 
 conn = sqlite3.connect(':memory:')
 if args.writedb:
@@ -384,27 +384,28 @@ hbt = HtmlBuilder()
 hbt.add_table_to_html(
     rows, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
 filename = hbt.write_html_report("all hashes.html")
-summary_table.append((num_hashes, "Password Hashes",
+summary_table.append((num_hashes, 100, "Password Hashes",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Total number of UNIQUE hashes in the NTDS file
 c.execute('SELECT count(DISTINCT nt_hash) FROM hash_infos WHERE history_index = -1')
 num_unique_nt_hashes = c.fetchone()[0]
-summary_table.append((num_unique_nt_hashes, "Unique Password Hashes", None))
+percent_unique = pct(num_unique_nt_hashes, num_hashes)
+summary_table.append((num_unique_nt_hashes, percent_unique, "Unique Password Hashes", None))
 
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos WHERE password is not NULL AND history_index = -1')
 num_passwords_cracked = c.fetchone()[0]
 percent_all_cracked = pct(num_passwords_cracked, num_hashes)
 summary_table.append(
-    (f'{num_passwords_cracked} ({percent_all_cracked}%)', "Passwords Discovered Through Cracking", None))
+    (num_passwords_cracked, percent_all_cracked, "Passwords Discovered Through Cracking", None))
 
 # Number of UNIQUE passwords that were cracked
 c.execute(
     'SELECT count(Distinct password) FROM hash_infos where password is not NULL AND history_index = -1 ')
 num_unique_passwords_cracked = c.fetchone()[0]
 percent_cracked_unique = pct(num_unique_passwords_cracked, num_unique_nt_hashes)
-summary_table.append((f'{num_unique_passwords_cracked} ({percent_cracked_unique}%)',
+summary_table.append((num_unique_passwords_cracked, percent_cracked_unique,
                       "Unique Passwords Discovered Through Cracking", None))
 
 # Kerberoastable Accounts
@@ -435,7 +436,7 @@ if args.kerbfile:
 
             # Add to global summary
             summary_table.append((
-                f"{len(cracked_rows)} ({pct(len(cracked_rows), total_cracked)}%)",
+                len(cracked_rows), pct(len(cracked_rows), total_cracked),
                  "Cracked Kerberoastable Accounts",
                  f'<a href="{kerb_filename}">Details</a>')
             )
@@ -525,6 +526,7 @@ groups_page_filename = hbt_groups.write_html_report("groups_stats.html")
 # --- ADD ONE ROW TO THE MASTER SUMMARY TABLE ---
 summary_table.append((
     None,
+    None,
     "Group Cracking Statistics",
     f'<a href="{groups_page_filename}">Details</a>'
 ))
@@ -553,7 +555,7 @@ if violating_rows:
 
     # Add a line to summary_table → Count • Description • Details link
     summary_table.append((
-        f"{len(violating_rows)} ({pct(len(violating_rows), total_cracked)}%)",
+        len(violating_rows), pct(len(violating_rows), total_cracked),
         f"Accounts With Passwords Shorter Than {min_len} Characters",
         f'<a href="{policy_filename}">Details</a>'
     ))
@@ -562,11 +564,15 @@ else:
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
-summary_table.append((c.fetchone()[0], "LM Hashes (Non-blank)", None))
+num_lm_hashes = c.fetchone()[0]
+percent_lm_hashes = pct(num_lm_hashes, num_hashes)
+summary_table.append((num_lm_hashes, percent_lm_hashes, "LM Hashes (Non-blank)", None))
 
 # Number of UNIQUE LM hashes in the NTDS, excluding the blank value
 c.execute('SELECT count(DISTINCT lm_hash) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
-summary_table.append((c.fetchone()[0], "Unique LM Hashes (Non-blank)", None))
+num_unique_lm_hashes = c.fetchone()[0]
+percent_unique_lm_hashes = pct(num_unique_lm_hashes, num_hashes)
+summary_table.append((num_unique_lm_hashes, percent_unique_lm_hashes, "Unique LM Hashes (Non-blank)", None))
 
 # Number of passwords that are LM cracked for which you don't have the exact (case sensitive) password.
 c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") AND history_index = -1 and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
@@ -590,11 +596,15 @@ hbt = HtmlBuilder()
 headers = ["Username", "Password", "Password Length", "Only LM Cracked"]
 hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("users_only_cracked_through_lm.html")
-summary_table.append((len(rows), "Passwords Only Cracked via LM Hash",
+percent_only_lm_cracked = pct(len(rows), num_passwords_cracked)
+summary_table.append((len(rows), percent_only_lm_cracked, "Passwords Only Cracked via LM Hash",
                       "<a href=\"" + filename + "\">Details</a>"))
 c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1 AND history_index = -1')
+num_unique_lm_hashes_not_cracked = c.fetchone()[0]
+percent_unique_lm_hashes_not_cracked = pct(num_unique_lm_hashes_not_cracked, num_hashes)
 summary_table.append(
-    (c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash Was Not Cracked", None))
+    (num_unique_lm_hashes_not_cracked, percent_unique_lm_hashes_not_cracked, 
+     "Unique LM Hashes Cracked Where NT Hash Was Not Cracked", None))
 
 # Password length statistics
 c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen <> 0 GROUP BY plen ORDER BY plen')
@@ -617,7 +627,7 @@ rows = c.fetchall()
 headers = ["Count", "Password Length"]
 hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("password_length_stats.html")
-summary_table.append((None, "Password Length Stats",
+summary_table.append((None, None, "Password Length Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Top Ten Passwords Used
@@ -627,7 +637,7 @@ hbt = HtmlBuilder()
 headers = ["Password", "Count"]
 hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("top_password_stats.html")
-summary_table.append((None, "Top Password Use Stats",
+summary_table.append((None, None, "Top Password Use Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password Reuse Statistics (based only on NT hash)
@@ -651,7 +661,7 @@ hbt = HtmlBuilder()
 headers = ["NT Hash", "Count", "Password", "Details"]
 hbt.add_table_to_html(rows, headers, 3)
 filename = hbt.write_html_report("password_reuse_stats.html")
-summary_table.append((None, "Password Reuse Stats",
+summary_table.append((None, None, "Password Reuse Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password History Stats
@@ -680,11 +690,11 @@ else:
     headers = password_history_headers
     hbt.add_table_to_html(rows, headers, 8)
 filename=hbt.write_html_report("password_history.html")
-summary_table.append((None, "Password History",
+summary_table.append((None, None, "Password History",
                 "<a href=\"" + filename + "\">Details</a>"))
 
 # Write out the main report page
-hb.add_table_to_html(summary_table, summary_table_headers, 2)
+hb.add_table_to_html(summary_table, summary_table_headers, 3)
 hb.write_html_report(filename_for_html_report)
 print("The Report has been written to the \"" + filename_for_html_report +
       "\" file in the \"" + folder_for_html_report + "\" directory")
