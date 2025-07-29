@@ -554,7 +554,7 @@ if violating_rows:
     # Add a line to summary_table → Count • Description • Details link
     summary_table.append((
         f"{len(violating_rows)} ({pct(len(violating_rows), total_cracked)}%)",
-        f"Accounts with passwords shorter than {min_len} characters",
+        f"Accounts With Passwords Shorter Than {min_len} Characters"
         f'<a href="{policy_filename}">Details</a>'
     ))
 else:
