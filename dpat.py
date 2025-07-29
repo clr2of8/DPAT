@@ -78,8 +78,14 @@ parser.add_argument('--ch-encoding',
 parser.add_argument('-dbg', '--debug',
         help='Enable debug output (for development purposes)',
         default=False, required=False, action='store_true')
+parser.add_argument('-p', '--minpasslen',
+    type=int,
+    help='Minimum password length defined in the domain password policy. '
+         'Any cracked password shorter than this is reported.',
+    required=True)
 args = parser.parse_args()
 
+min_len = args.minpasslen
 ntds_file = args.ntdsfile
 cracked_file = args.crackfile
 filename_for_html_report = args.outputfile
@@ -360,6 +366,15 @@ if not speed_it_up:
             c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         count -= 1
 
+# How many distinct accounts have a cracked password in scope?
+c.execute('''
+    SELECT COUNT(DISTINCT username)
+    FROM   hash_infos
+    WHERE  history_index = -1
+      AND  password IS NOT NULL
+''')
+total_cracked = c.fetchone()[0] or 1   # avoid div‑by‑zero
+
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 rows = c.fetchall()
@@ -380,23 +395,17 @@ summary_table.append((num_unique_nt_hashes, "Unique Password Hashes", None))
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos WHERE password is not NULL AND history_index = -1')
 num_passwords_cracked = c.fetchone()[0]
+percent_all_cracked = pct(num_passwords_cracked, num_hashes)
 summary_table.append(
-    (num_passwords_cracked, "Passwords Discovered Through Cracking", None))
+    (f'{num_passwords_cracked} ({percent_all_cracked}%)', "Passwords Discovered Through Cracking", None))
 
 # Number of UNIQUE passwords that were cracked
 c.execute(
     'SELECT count(Distinct password) FROM hash_infos where password is not NULL AND history_index = -1 ')
 num_unique_passwords_cracked = c.fetchone()[0]
-summary_table.append((num_unique_passwords_cracked,
-                      "Unique Passwords Discovered Through Cracking", None))
-
-# Percentage of current passwords cracked and percentage of unique passwords cracked
 percent_cracked_unique = pct(num_unique_passwords_cracked, num_unique_nt_hashes)
-percent_all_cracked = pct(num_passwords_cracked, num_hashes)
-summary_table.append(("%0.1f" % percent_all_cracked,
-                      "Percent of Current Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
-summary_table.append(("%0.1f" % percent_cracked_unique,
-                      "Percent of Unique Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
+summary_table.append((f'{num_unique_passwords_cracked} ({percent_cracked_unique}%)',
+                      "Unique Passwords Discovered Through Cracking", None))
 
 # Kerberoastable Accounts
 if args.kerbfile:
@@ -425,8 +434,8 @@ if args.kerbfile:
             kerb_filename = kerb_report_builder.write_html_report("kerberoast_cracked.html")
 
             # Add to global summary
-            summary_table.append(
-                (str(len(cracked_rows)),
+            summary_table.append((
+                f"{len(cracked_rows)} ({pct(len(cracked_rows), total_cracked)}%)",
                  "Cracked Kerberoastable Accounts",
                  f'<a href="{kerb_filename}">Details</a>')
             )
@@ -519,6 +528,37 @@ summary_table.append((
     "Group Cracking Statistics",
     f'<a href="{groups_page_filename}">Details</a>'
 ))
+
+# ── Password‑policy length violations ─────────────────────────────────
+c.execute('''
+    SELECT username,
+           LENGTH(password) AS plen,
+           password
+    FROM   hash_infos
+    WHERE  history_index = -1
+      AND  password IS NOT NULL
+      AND  LENGTH(password) < ?
+''', (min_len,))
+violating_rows = c.fetchall()    # (username, plen, password)
+
+if violating_rows:
+    # Build HTML table: User | Actual Len | Policy Len | Password
+    hbt_policy = HtmlBuilder()
+    headers = ["Username", "Password Length", "Policy Min Length", "Password"]
+    data = [(u, plen, min_len, ("" if p is None else p))
+            for u, plen, p in violating_rows]
+    hbt_policy.add_table_to_html(data, headers, cols_to_not_escape=3)
+
+    policy_filename = hbt_policy.write_html_report("password_policy_violations.html")
+
+    # Add a line to summary_table → Count • Description • Details link
+    summary_table.append((
+        f"{len(violating_rows)} ({pct(len(violating_rows), total_cracked)}%)",
+        f"Accounts with passwords shorter than {min_len}",
+        f'<a href="{policy_filename}">Details</a>'
+    ))
+else:
+    print(f"[+] No cracked passwords shorter than {min_len} characters.")
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
