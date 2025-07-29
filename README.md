@@ -85,7 +85,7 @@ To see all available DPAT options use the '-h' or '--help' option
 
 ```
 usage: dpat.py [-h] -n NTDSFILE -c CRACKFILE [-o OUTPUTFILE] [-d REPORTDIRECTORY] [-w] [-s] [-g GROUPSDIRECTORY] [-m] [-k] [-kz KERBFILE]
-               [--ch-encoding CH_ENCODING] [-dbg]
+               [--ch-encoding CH_ENCODING] [-dbg] -p MINPASSLEN
 
 This script will perform a domain password audit based on an extracted NTDS file and password cracking output such as Hashcat.
 
@@ -113,6 +113,8 @@ options:
   --ch-encoding CH_ENCODING
                         Encoding to open cypherhound files with (default cp1252)
   -dbg, --debug         Enable debug output (for development purposes)
+  -p, --minpasslen MINPASSLEN
+                        Minimum password length defined in the domain password policy. Any cracked password shorter than this is reported.
 ```
 
 ## CypherHound Integration (Add Extra Statistics)
