@@ -554,7 +554,7 @@ if violating_rows:
     # Add a line to summary_table → Count • Description • Details link
     summary_table.append((
         f"{len(violating_rows)} ({pct(len(violating_rows), total_cracked)}%)",
-        f"Accounts With Passwords Shorter Than {min_len} Characters"
+        f"Accounts With Passwords Shorter Than {min_len} Characters",
         f'<a href="{policy_filename}">Details</a>'
     ))
 else:
@@ -594,7 +594,7 @@ summary_table.append((len(rows), "Passwords Only Cracked via LM Hash",
                       "<a href=\"" + filename + "\">Details</a>"))
 c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1 AND history_index = -1')
 summary_table.append(
-    (c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash was Not Cracked", None))
+    (c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash Was Not Cracked", None))
 
 # Password length statistics
 c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen <> 0 GROUP BY plen ORDER BY plen')
