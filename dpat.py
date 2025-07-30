@@ -365,16 +365,7 @@ if not speed_it_up:
         if password is not None:
             c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         count -= 1
-
-# How many distinct accounts have a cracked password in scope?
-c.execute('''
-    SELECT COUNT(DISTINCT username)
-    FROM   hash_infos
-    WHERE  history_index = -1
-      AND  password IS NOT NULL
-''')
-total_cracked = c.fetchone()[0] or 1   # avoid div‑by‑zero
-
+    
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 rows = c.fetchall()
@@ -404,7 +395,7 @@ summary_table.append(
 c.execute(
     'SELECT count(Distinct password) FROM hash_infos where password is not NULL AND history_index = -1 ')
 num_unique_passwords_cracked = c.fetchone()[0]
-percent_cracked_unique = pct(num_unique_passwords_cracked, num_unique_nt_hashes)
+percent_cracked_unique = pct(num_unique_passwords_cracked, num_hashes)
 summary_table.append((num_unique_passwords_cracked, percent_cracked_unique,
                       "Unique Passwords Discovered Through Cracking", None))
 
@@ -447,7 +438,7 @@ if args.kerbfile:
 
             # Add to global summary
             summary_table.append((
-                len(cracked_rows), pct(len(cracked_rows), total_cracked),
+                len(cracked_rows), pct(len(cracked_rows), num_hashes),
                  "Cracked Kerberoastable Accounts",
                  f'<a href="{kerb_filename}">Details</a>')
             )
@@ -566,7 +557,7 @@ if violating_rows:
 
     # Add a line to summary_table → Count • Description • Details link
     summary_table.append((
-        len(violating_rows), pct(len(violating_rows), total_cracked),
+        len(violating_rows), pct(len(violating_rows), num_passwords_cracked),
         f"Accounts With Passwords Shorter Than {min_len} Characters",
         f'<a href="{policy_filename}">Details</a>'
     ))
@@ -607,7 +598,7 @@ hbt = HtmlBuilder()
 headers = ["Username", "Password", "Password Length", "Only LM Cracked"]
 hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("users_only_cracked_through_lm.html")
-percent_only_lm_cracked = pct(len(rows), num_passwords_cracked)
+percent_only_lm_cracked = pct(len(rows), num_hashes)
 summary_table.append((len(rows), percent_only_lm_cracked, "Passwords Only Cracked via LM Hash",
                       "<a href=\"" + filename + "\">Details</a>"))
 c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1 AND history_index = -1')
