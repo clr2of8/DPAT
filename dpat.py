@@ -384,6 +384,17 @@ num_unique_nt_hashes = c.fetchone()[0]
 percent_unique = pct(num_unique_nt_hashes, num_hashes)
 summary_table.append((num_unique_nt_hashes, percent_unique, "Unique Password Hashes", None))
 
+# Calculate total number of duplicate password hashes
+num_duplicate_hashes = num_hashes - num_unique_nt_hashes
+percent_duplicate_hashes = pct(num_duplicate_hashes, num_hashes)
+
+summary_table.append((
+    num_duplicate_hashes,
+    percent_duplicate_hashes,
+    "Duplicate Password Hashes Identified Through Audit",
+    None
+))
+
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos WHERE password is not NULL AND history_index = -1')
 num_passwords_cracked = c.fetchone()[0]
@@ -398,17 +409,6 @@ num_unique_passwords_cracked = c.fetchone()[0]
 percent_cracked_unique = pct(num_unique_passwords_cracked, num_hashes)
 summary_table.append((num_unique_passwords_cracked, percent_cracked_unique,
                       "Unique Passwords Discovered Through Cracking", None))
-
-# Calculate total number of duplicate password hashes
-num_duplicate_hashes = num_hashes - num_unique_nt_hashes
-percent_duplicate_hashes = pct(num_duplicate_hashes, num_hashes)
-
-summary_table.append((
-    num_duplicate_hashes,
-    percent_duplicate_hashes,
-    "Duplicate Password Hashes Identified Through Audit",
-    None
-))
 
 # Kerberoastable Accounts
 if args.kerbfile:
