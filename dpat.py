@@ -416,36 +416,39 @@ if args.kerbfile:
     kerb_rows = load_kerberoast_ntds(args.kerbfile, args.ch_encoding, args.debug)
 
     if kerb_rows:
-        # Pull hashes that were cracked (password NOT NULL)
-        kerb_hashes = tuple({nt for _, nt in kerb_rows})
-        placeholders = ",".join("?" * len(kerb_hashes))
+        # ---- NEW: pull usernames, not hashes ---------------------------
+        kerb_usernames = tuple({u for u, _ in kerb_rows})   # de‑dupe set → tuple
+        total_kerb_accts = len(kerb_usernames)
+        placeholders = ",".join("?" * total_kerb_accts)
 
         c.execute(f'''
             SELECT username_full, nt_hash, password
-            FROM hash_infos
-            WHERE nt_hash IN ({placeholders})
-              AND password IS NOT NULL
-              AND history_index = -1
-        ''', kerb_hashes)
+            FROM   hash_infos
+            WHERE  username_full IN ({placeholders})
+              AND  password IS NOT NULL
+              AND  history_index = -1
+        ''', kerb_usernames)
         cracked_rows = c.fetchall()
+        # ----------------------------------------------------------------
 
         if cracked_rows:
-            # Create report page
             kerb_report_builder = HtmlBuilder()
             kerb_headers = ("Username", "NT Hash", "Password")
             kerb_report_builder.add_table_to_html(cracked_rows, kerb_headers, 2)
             kerb_filename = kerb_report_builder.write_html_report("kerberoast_cracked.html")
 
-            # Add to global summary
+            # percentage of roastable accounts that are cracked
+            percent = pct(len(cracked_rows), num_hashes)
+
             summary_table.append((
-                len(cracked_rows), pct(len(cracked_rows), num_hashes),
-                 "Cracked Kerberoastable Accounts",
-                 f'<a href="{kerb_filename}">Details</a>')
-            )
+                len(cracked_rows), percent,
+                "Cracked Kerberoastable Accounts",
+                f'<a href="{kerb_filename}">Details</a>'
+            ))
             print(f"[+] Kerberoast cracked report written: {kerb_filename} "
-                  f"({len(cracked_rows)} cracked)")
+                  f"({len(cracked_rows)} / {num_hashes} = {percent}% cracked)")
         else:
-            print("[+] No Kerberoastable hashes were cracked.")
+            print("[+] No Kerberoastable accounts were cracked.")
     else:
         print("[!] Kerberoastable file contained no valid NTDS lines.")
 
