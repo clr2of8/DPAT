@@ -408,11 +408,16 @@ percent_cracked_unique = pct(num_unique_passwords_cracked, num_unique_nt_hashes)
 summary_table.append((num_unique_passwords_cracked, percent_cracked_unique,
                       "Unique Passwords Discovered Through Cracking", None))
 
-# Number of reused (duplicate) passwords
-num_duplicate_passwords = num_passwords_cracked - num_unique_passwords_cracked
-percent_duplicate_passwords = pct(num_duplicate_passwords, num_passwords_cracked)
-summary_table.append((num_duplicate_passwords, percent_duplicate_passwords,
-                      "Duplicate Passwords Discovered Through Cracking", None))
+# Calculate total number of duplicate password hashes
+num_duplicate_hashes = num_hashes - num_unique_nt_hashes
+percent_duplicate_hashes = pct(num_duplicate_hashes, num_hashes)
+
+summary_table.append((
+    num_duplicate_hashes,
+    percent_duplicate_hashes,
+    "Duplicate Password Hashes Identified Through Audit",
+    None
+))
 
 # Kerberoastable Accounts
 if args.kerbfile:
