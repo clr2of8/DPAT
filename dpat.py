@@ -375,7 +375,7 @@ hbt = HtmlBuilder()
 hbt.add_table_to_html(
     rows, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
 filename = hbt.write_html_report("all hashes.html")
-summary_table.append((num_hashes, 100, "Password Hashes",
+summary_table.append((num_hashes, None, "Password Hashes",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Total number of UNIQUE hashes in the NTDS file
