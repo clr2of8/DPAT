@@ -365,7 +365,7 @@ if not speed_it_up:
         if password is not None:
             c.execute('UPDATE hash_infos SET only_lm_cracked = 1, password = \'' + password.replace("'", "''") + '\' WHERE nt_hash = \'' + pair[0] + '\'')
         count -= 1
-    
+
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
 rows = c.fetchall()
@@ -566,6 +566,40 @@ if violating_rows:
     ))
 else:
     print(f"[+] No cracked passwords shorter than {min_len} characters.")
+
+try:
+    print("[*] Checking for users whose password equals their username...")
+    c.execute("""
+        SELECT username, password, LENGTH(password) AS plen, nt_hash
+        FROM hash_infos
+        WHERE history_index = -1
+          AND password IS NOT NULL
+    """)
+    rows = c.fetchall()
+
+    offenders = []
+    for username, password, plen, nt_hash in rows:
+        if username and password and username == password:
+            offenders.append((username, password, plen, nt_hash))
+
+    # Build the HTML details table
+    if offenders:
+        print(f"[+] Found {len(offenders)} users with username == password")
+        hbt_user_as_pass = HtmlBuilder()
+        hbt_user_as_pass.add_table_to_html(
+            offenders,
+            ["Username", "Password", "Password Length", "NT Hash"]
+        )
+
+        filename = hbt_user_as_pass.write_html_report("username_equals_password.html")
+        summary_table.append((
+            len(offenders),
+            pct(len(offenders), num_hashes),
+            "Accounts Using Username As Password",
+            f'<a href="{filename}">Details</a>'
+        ))
+except Exception as e:
+    print(f"[!] Error while checking username==password: {e!r}")
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
