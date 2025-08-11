@@ -6,20 +6,45 @@ import os
 import re
 import argparse
 import sqlite3
-import sys
 from shutil import copyfile
-try:
-    import html as htmllib
-except ImportError:
-    import cgi as htmllib  
+import html
 import binascii
 import hashlib
 from distutils.util import strtobool
-from pprint import pprint
+from typing import Iterable, Optional, Sequence, Union
 filename_for_html_report = "_DomainPasswordAuditReport.html"
 folder_for_html_report = "DPAT Report"
 filename_for_db_on_disk = "pass_audit.db"
 compare_groups = []
+
+_NTDS_PATTERNS = [
+    # DOMAIN\user:rest
+    re.compile(r'^(?P<domain>[^\\]+)\\(?P<user>[^:]+):(?P<nt>[0-9A-Fa-f]{32}).*$', re.I),
+    # pwdump style
+    re.compile(r'^(?P<user>[^:]+):(?P<rid>\d+):(?P<lm>[0-9A-Fa-f]{32}|\*):(?P<nt>[0-9A-Fa-f]{32}|\*):.*$', re.I),
+]
+def _parse_ntds(line: str):
+    for pat in _NTDS_PATTERNS:
+        m = pat.match(line)
+        if m:
+            return m.group('user').lower(), m.group('nt').lower()
+    return None, None
+
+def load_kerberoast_ntds(path: str, enc: str = 'cp1252', debug: bool = False):
+    """
+    Returns rows of tuples  (username_full, nt_hash)
+    """
+    kerb_entries = []
+    with open(path, 'r', encoding=enc, errors='replace') as f:
+        for i, raw in enumerate(f, 1):
+            user, nt = _parse_ntds(raw.strip())
+            if user and nt and nt != '*' * 32:
+                kerb_entries.append((user, nt))
+                if debug:
+                    print(f"[kerb DEBUG] line {i}: {user}:{nt}")
+            elif debug:
+                print(f"[kerb DEBUG] line {i}: skipped")
+    return kerb_entries
 
 # This should be False as it is only a shortcut used during development
 speed_it_up = False
@@ -38,30 +63,71 @@ parser.add_argument('-w', '--writedb', help='Write the SQLite database info to d
                     filename_for_db_on_disk + '"', default=False, required=False, action='store_true')
 parser.add_argument('-s', '--sanitize', help='Sanitize the report by partially redacting passwords and hashes. Prepends the report directory with \"Sanitized - \"',
                     default=False, required=False, action='store_true')
-parser.add_argument('-g', '--grouplists', help='The name of one or multiple files that contain lists of usernames in particular groups. The group names will be taken from the file name itself. The username list must be in the same format as found in the NTDS file such as some.ad.domain.com\\username or it can be in the format output by using the PowerView Get-NetGroupMember function. Example: -g "Domain Admins.txt" "Enterprise Admins.txt"', nargs='*', required=False)
+parser.add_argument('-g', '--groupsdirectory', help='The path to the directory containing files that contain lists of usernames in particular groups. The group ' +
+                    'names will be taken from the first line in each file. The username list must be in the same format as found in the NTDS file such as ' +
+                    'some.ad.domain.com\\username', required=False)
 parser.add_argument('-m', '--machineaccts', help='Include machine accounts when calculating statistics',
                     default=False, required=False, action='store_true')
 parser.add_argument('-k', '--krbtgt', help='Include the krbtgt account', default=False, required=False, action='store_true')
+parser.add_argument('-kz', '--kerbfile',
+        help='File that contains NTDS lines for Kerberoastable accounts (from the cypherhound script)',
+        required=False)
+parser.add_argument('--ch-encoding',
+        help='Encoding to open cypherhound files with (default cp1252)',
+        default='cp1252', required=False)
+parser.add_argument('-dbg', '--debug',
+        help='Enable debug output (for development purposes)',
+        default=False, required=False, action='store_true')
+parser.add_argument('-p', '--minpasslen',
+    type=int,
+    help='Minimum password length defined in the domain password policy. '
+         'Any cracked password shorter than this is reported.',
+    required=True)
 args = parser.parse_args()
 
+min_len = args.minpasslen
 ntds_file = args.ntdsfile
 cracked_file = args.crackfile
 filename_for_html_report = args.outputfile
 folder_for_html_report = args.reportdirectory
 if args.sanitize:
     folder_for_html_report = folder_for_html_report + " - Sanitized"
-if args.grouplists is not None:
-    for groupfile in args.grouplists:
-        compare_groups.append(
-            (os.path.splitext(os.path.basename(groupfile))[0], groupfile))
+if args.groupsdirectory is not None:
+    group_dir = os.path.normpath(args.groupsdirectory)
+    print(f"[+] Groups directory specified: {group_dir}")
+
+    if os.path.isdir(group_dir):
+        print(f"[+] Loading group files from directory: {group_dir}")
+        for fname in sorted(os.listdir(group_dir)):
+            fpath = os.path.join(group_dir, fname)
+            print(f"  ├─ Processing file: {fname}")
+            if os.path.isfile(fpath):
+                try:
+                    with open(fpath, 'r', encoding='cp1252' if not args.ch_encoding else args.ch_encoding) as f:
+                        first_line = f.readline().strip()
+                        print(f"  ├─ First line: '{first_line}'")
+                        if first_line:
+                            compare_groups.append((first_line, fpath))
+                            print(f"  └─ Loaded group '{first_line}' from file: {fname}")
+                        else:
+                            print(f"  └─ Skipped empty file: {fname}")
+                except Exception as e:
+                    print(f"[!] Error reading file {fpath}: {e}")
+    else:
+        print(f"[!] Specified groupsdirectory is not a valid directory: {group_dir}")    
 
 # create report folder if it doesn't already exist
 if not os.path.exists(folder_for_html_report):
     os.makedirs(folder_for_html_report)
 
+# percentage calculation helper function
+def pct(part, whole):
+    try:
+        return round((part / whole) * 100, 2)
+    except ZeroDivisionError:
+        return 0.0
+
 # show only the first and last char of a password or a few more chars for a hash
-
-
 def sanitize(pass_or_hash):
     if not args.sanitize:
         return pass_or_hash
@@ -80,50 +146,67 @@ def sanitize(pass_or_hash):
 class HtmlBuilder:
     bodyStr = ""
 
-    def build_html_body_string(self, str):
-        self.bodyStr += str + "</br>\n"
+    def build_html_body_string(self, s: str):
+        self.bodyStr += s + "\n<div class='section-space'></div>\n"
 
     def get_html(self):
-        return "<!DOCTYPE html>\n" + "<html>\n<head>\n<link rel='stylesheet' href='report.css'>\n</head>\n" + "<body>\n" + self.bodyStr + "</html>\n" + "</body>\n"
+        return (
+            "<!DOCTYPE html>\n<html>\n<head>\n"
+            "<meta charset='utf-8'>\n<meta name='viewport' content='width=device-width,initial-scale=1'>\n"
+            "<link rel='stylesheet' href='report.css'>\n"
+            "<title>DPAT Report</title>\n"
+            "</head>\n<body>\n"
+            + self.bodyStr +
+            "\n</body>\n</html>\n"
+        )
 
-    def add_table_to_html(self, list, headers=[], col_to_not_escape=None):
-        html = '<table border="1">\n'
-        html += "<tr>"
-        for header in headers:
-            if header is not None:
-                html += "<th>" + str(header) + "</th>"
-            else:
-                html += "<th></th>"
-        html += "</tr>\n"
-        for line in list:
-            html += "<tr>"
-            col_num = 0
-            for column in line:
-                if column is not None:
-                    col_data = column
-                    if ((("Password") in headers[col_num] and not "Password Length" in headers[col_num]) or ("Hash" in headers[col_num]) or ("History" in headers[col_num])):
-                        col_data = sanitize(column)
-                    if col_num != col_to_not_escape:
-                        col_data = htmllib.escape(str(col_data))
-                    html += "<td>" + col_data + "</td>"
-                else:
-                    html += "<td></td>"
-                col_num += 1
-            html += "</tr>\n"
-        html += "</table>"
-        self.build_html_body_string(html)
+    def add_table_to_html(
+        self,
+        rows: Iterable[Sequence[object]],
+        headers: Sequence[str] = (),
+        cols_to_not_escape: Union[int, Sequence[int], None] = (),
+        caption: Optional[str] = None
+    ):
+        if cols_to_not_escape is None:
+            cols_to_not_escape = set()
+        elif isinstance(cols_to_not_escape, int):
+            cols_to_not_escape = {cols_to_not_escape}
+        else:
+            cols_to_not_escape = set(cols_to_not_escape)
+
+        out = ["<div class='table-wrap'>", "<table class='report'>"]
+        if caption:
+            out.append(f"<caption>{html.escape(caption)}</caption>")
+
+        # Header
+        out.append("<thead><tr>")
+        for h in headers:
+            out.append(f"<th>{'' if h is None else html.escape(str(h))}</th>")
+        out.append("</tr></thead>")
+
+        # Body
+        out.append("<tbody>")
+        for row in rows:
+            out.append("<tr>")
+            for idx, cell in enumerate(row):
+                cell_data = "" if cell is None else str(cell)
+                if idx not in cols_to_not_escape:
+                    cell_data = html.escape(cell_data)
+                out.append(f"<td>{cell_data}</td>")
+            out.append("</tr>")
+        out.append("</tbody></table></div>")
+        self.build_html_body_string("".join(out))
 
     def write_html_report(self, filename):
-        f = open(os.path.join(folder_for_html_report, filename), "w")
-        copyfile(os.path.join(os.path.dirname(__file__), "report.css"), os.path.join(folder_for_html_report, "report.css"))
-        f.write(self.get_html())
-        f.close()
+        with open(os.path.join(folder_for_html_report, filename), "w", encoding="utf-8") as f:
+            copyfile(os.path.join(os.path.dirname(__file__), "report.css"),
+                     os.path.join(folder_for_html_report, "report.css"))
+            f.write(self.get_html())
         return filename
-
 
 hb = HtmlBuilder()
 summary_table = []
-summary_table_headers = ("Count", "Description", "More Info")
+summary_table_headers = ("Count", "Percent", "Description", "More Info")
 
 conn = sqlite3.connect(':memory:')
 if args.writedb:
@@ -137,8 +220,6 @@ c = conn.cursor()
 
 # nt2lmcrack functionality
 # the all_casings functionality was taken from https://github.com/BBerastegui/foo/blob/master/casing.py
-
-
 def all_casings(input_string):
     if not input_string:
         yield ""
@@ -270,11 +351,11 @@ if not speed_it_up:
 
     # Do additional LM cracking
     c.execute('SELECT nt_hash,lm_pass_left,lm_pass_right FROM hash_infos WHERE (lm_pass_left is not NULL or lm_pass_right is not NULL) and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by nt_hash')
-    list = c.fetchall()
-    count = len(list)
+    rows = c.fetchall()
+    count = len(rows)
     if count != 0:
         print("Cracking %d NT Hashes where only LM Hash was cracked (aka lm2ntcrack functionality)" % count)
-    for pair in list:
+    for pair in rows:
         lm_pwd = ""
         if pair[1] is not None:
             lm_pwd += pair[1]
@@ -287,186 +368,339 @@ if not speed_it_up:
 
 # Total number of hashes in the NTDS file
 c.execute('SELECT username_full,password,LENGTH(password) as plen,nt_hash,only_lm_cracked FROM hash_infos WHERE history_index = -1 ORDER BY plen DESC, password')
-list = c.fetchall()
+rows = c.fetchall()
 
-num_hashes = len(list)
+num_hashes = len(rows)
 hbt = HtmlBuilder()
 hbt.add_table_to_html(
-    list, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
+    rows, ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
 filename = hbt.write_html_report("all hashes.html")
-summary_table.append((num_hashes, "Password Hashes",
+summary_table.append((num_hashes, None, "Password Hashes",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Total number of UNIQUE hashes in the NTDS file
 c.execute('SELECT count(DISTINCT nt_hash) FROM hash_infos WHERE history_index = -1')
 num_unique_nt_hashes = c.fetchone()[0]
-summary_table.append((num_unique_nt_hashes, "Unique Password Hashes", None))
+percent_unique = pct(num_unique_nt_hashes, num_hashes)
+summary_table.append((num_unique_nt_hashes, percent_unique, "Unique Password Hashes", None))
+
+# Calculate total number of duplicate password hashes
+num_duplicate_hashes = num_hashes - num_unique_nt_hashes
+percent_duplicate_hashes = pct(num_duplicate_hashes, num_hashes)
+
+summary_table.append((
+    num_duplicate_hashes,
+    percent_duplicate_hashes,
+    "Duplicate Password Hashes Identified Through Audit",
+    None
+))
 
 # Number of users whose passwords were cracked
 c.execute('SELECT count(*) FROM hash_infos WHERE password is not NULL AND history_index = -1')
 num_passwords_cracked = c.fetchone()[0]
+percent_all_cracked = pct(num_passwords_cracked, num_hashes)
 summary_table.append(
-    (num_passwords_cracked, "Passwords Discovered Through Cracking", None))
+    (num_passwords_cracked, percent_all_cracked, "Passwords Discovered Through Cracking", None))
 
 # Number of UNIQUE passwords that were cracked
 c.execute(
     'SELECT count(Distinct password) FROM hash_infos where password is not NULL AND history_index = -1 ')
 num_unique_passwords_cracked = c.fetchone()[0]
-summary_table.append((num_unique_passwords_cracked,
+percent_cracked_unique = pct(num_unique_passwords_cracked, num_hashes)
+summary_table.append((num_unique_passwords_cracked, percent_cracked_unique,
                       "Unique Passwords Discovered Through Cracking", None))
 
-# Percentage of current passwords cracked and percentage of unique passwords cracked
-percent_cracked_unique = num_unique_passwords_cracked / \
-    float(num_unique_nt_hashes)*100
-percent_all_cracked = num_passwords_cracked/float(num_hashes)*100
-summary_table.append(("%0.1f" % percent_all_cracked,
-                      "Percent of Current Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
-summary_table.append(("%0.1f" % percent_cracked_unique,
-                      "Percent of Unique Passwords Cracked", "<a href=\"" + filename + "\">Details</a>"))
+# Kerberoastable Accounts
+if args.kerbfile:
+    print(f"[+] Processing Kerberoastable file: {args.kerbfile}")
+    kerb_rows = load_kerberoast_ntds(args.kerbfile, args.ch_encoding, args.debug)
+
+    if kerb_rows:
+        # ---- NEW: pull usernames, not hashes ---------------------------
+        kerb_usernames = tuple({u for u, _ in kerb_rows})   # de‑dupe set → tuple
+        total_kerb_accts = len(kerb_usernames)
+        placeholders = ",".join("?" * total_kerb_accts)
+
+        c.execute(f'''
+            SELECT username_full, nt_hash, password
+            FROM   hash_infos
+            WHERE  username_full IN ({placeholders})
+              AND  password IS NOT NULL
+              AND  history_index = -1
+        ''', kerb_usernames)
+        cracked_rows = c.fetchall()
+        # ----------------------------------------------------------------
+
+        if cracked_rows:
+            kerb_report_builder = HtmlBuilder()
+            kerb_headers = ("Username", "NT Hash", "Password")
+            kerb_report_builder.add_table_to_html(cracked_rows, kerb_headers, 2)
+            kerb_filename = kerb_report_builder.write_html_report("kerberoast_cracked.html")
+
+            # percentage of roastable accounts that are cracked
+            percent = pct(len(cracked_rows), num_hashes)
+
+            summary_table.append((
+                len(cracked_rows), percent,
+                "Cracked Kerberoastable Accounts",
+                f'<a href="{kerb_filename}">Details</a>'
+            ))
+            print(f"[+] Kerberoast cracked report written: {kerb_filename} "
+                  f"({len(cracked_rows)} / {num_hashes} = {percent}% cracked)")
+        else:
+            print("[+] No Kerberoastable accounts were cracked.")
+    else:
+        print("[!] Kerberoastable file contained no valid NTDS lines.")
 
 # Group Membership Details and number of passwords cracked for each group
+# We'll collect rows for the single groups page here:
+group_summary_rows = []
+group_page_headers = ("Group Name",
+                      "# Members",
+                      "# Passwords Cracked",
+                      "% Cracked",
+                      "Members Details",
+                      "Cracked PW Details")
+
+# --- GROUP MEMBERSHIP DETAILS LOOP ---
 for group in compare_groups:
-    c.execute(
-        "SELECT username_full,nt_hash FROM hash_infos WHERE \"" + group[0] + "\" = 1 AND history_index = -1")
-    # this list contains the username_full and nt_hash of all users in this group
-    list = c.fetchall()
-    num_groupmembers = len(list)
-    new_list = []
-    for tuple in list:  # the tuple is (username_full, nt_hash, lm_hash)
-        c.execute(
-            "SELECT username_full FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1")
-        users_list = c.fetchall()
-        if len(users_list) < 30:
-            string_of_users = (', '.join(''.join(elems)
-                                         for elems in users_list))
-            new_tuple = tuple + (string_of_users,)
+    group_name = group[0]
+
+    # 1) Build “members of group” table/page
+    c.execute("SELECT username_full, nt_hash FROM hash_infos WHERE \"%s\" = 1 AND history_index = -1" % group_name)
+    member_rows = c.fetchall()
+    num_groupmembers = len(member_rows)
+
+    detailed_member_rows = []
+    for username_full, nt_hash in member_rows:
+        # Users sharing this hash
+        c.execute("SELECT username_full FROM hash_infos WHERE nt_hash = \"%s\" AND history_index = -1" % nt_hash)
+        users_rows = c.fetchall()
+        share_cnt = len(users_rows)
+        if share_cnt < 30:
+            shared_users_str = ', '.join(''.join(u) for u in users_rows)
         else:
-            new_tuple = tuple + ("Too Many to List",)
-        new_tuple += (len(users_list),)
-        c.execute(
-            "SELECT password,lm_hash FROM hash_infos WHERE nt_hash = \"" + tuple[1] + "\" AND history_index = -1 LIMIT 1")
-        result = c.fetchone()
-        new_tuple += (result[0],)
-        # Is the LM Hash stored for this user?
-        if result[1] != "aad3b435b51404eeaad3b435b51404ee":
-            new_tuple += ("Yes",)
-        else:
-            new_tuple += ("No",)
-        new_list.append(new_tuple)
-    headers = ["Username", "NT Hash", "Users Sharing this Hash",
-               "Share Count", "Password", "Non-Blank LM Hash?"]
-    hbt = HtmlBuilder()
-    hbt.add_table_to_html(new_list, headers)
-    filename = hbt.write_html_report(group[0] + " members.html")
-    summary_table.append((num_groupmembers, "Members of \"%s\" group" %
-                          group[0], "<a href=\"" + filename + "\">Details</a>"))
-    c.execute("SELECT username_full, LENGTH(password) as plen, password, only_lm_cracked FROM hash_infos WHERE \"" +
-              group[0] + "\" = 1 and password is not NULL and password is not '' ORDER BY plen")
-    group_cracked_list = c.fetchall()
-    num_groupmembers_cracked = len(group_cracked_list)
-    headers = ["Username of \"" + group[0] + "\" Member",
-               "Password Length", "Password", "Only LM Cracked"]
-    hbt = HtmlBuilder()
-    hbt.add_table_to_html(group_cracked_list, headers)
-    filename = hbt.write_html_report(group[0] + " cracked passwords.html")
-    summary_table.append((num_groupmembers_cracked, "\"%s\" Passwords Cracked" %
-                          group[0], "<a href=\"" + filename + "\">Details</a>"))
+            shared_users_str = "Too Many to List"
+
+        # Pull password + LM info
+        c.execute("SELECT password, lm_hash FROM hash_infos WHERE nt_hash = \"%s\" AND history_index = -1 LIMIT 1" % nt_hash)
+        pw, lm = c.fetchone()
+        lm_present = "Yes" if lm != "aad3b435b51404eeaad3b435b51404ee" else "No"
+
+        detailed_member_rows.append((username_full, nt_hash, shared_users_str, share_cnt, pw, lm_present))
+
+    member_headers = ["Username", "NT Hash", "Users Sharing this Hash", "Share Count", "Password", "Non-Blank LM Hash?"]
+    hbt_members = HtmlBuilder()
+    hbt_members.add_table_to_html(detailed_member_rows, member_headers)
+    members_filename = hbt_members.write_html_report(f"{group_name}_members.html")
+
+    # 2) Build “cracked passwords for group” table/page
+    c.execute("""SELECT username_full, LENGTH(password) as plen, password, only_lm_cracked
+                 FROM hash_infos
+                 WHERE "%s" = 1 AND password is not NULL AND password != '' AND history_index = -1
+                 ORDER BY plen""" % group_name)
+    cracked_rows = c.fetchall()
+    num_groupmembers_cracked = len(cracked_rows)
+
+    cracked_headers = [f'Username of "{group_name}" Member', "Password Length", "Password", "Only LM Cracked"]
+    hbt_cracked = HtmlBuilder()
+    hbt_cracked.add_table_to_html(cracked_rows, cracked_headers)
+    cracked_filename = hbt_cracked.write_html_report(f"{group_name}_cracked_passwords.html")
+
+    # 3) Add a single row for THIS GROUP to the groups summary page list
+    percent_cracked = pct(num_groupmembers_cracked, num_groupmembers)
+
+    group_summary_rows.append((
+        group_name,
+        num_groupmembers,
+        num_groupmembers_cracked,
+        f"{percent_cracked}%",                          # ← new value
+        f'<a href="{members_filename}">Details</a>',
+        f'<a href="{cracked_filename}">Details</a>'
+    ))
+
+# --- AFTER THE LOOP: WRITE GROUPS PAGE ---
+hbt_groups = HtmlBuilder()
+hbt_groups.add_table_to_html(
+        group_summary_rows,
+        headers=group_page_headers,
+        cols_to_not_escape=(4, 5)          # ← keep anchor tags alive
+)
+groups_page_filename = hbt_groups.write_html_report("groups_stats.html")
+
+# --- ADD ONE ROW TO THE MASTER SUMMARY TABLE ---
+summary_table.append((
+    None,
+    None,
+    "Group Cracking Statistics",
+    f'<a href="{groups_page_filename}">Details</a>'
+))
+
+# ── Password‑policy length violations ─────────────────────────────────
+c.execute('''
+    SELECT username,
+           LENGTH(password) AS plen,
+           password
+    FROM   hash_infos
+    WHERE  history_index = -1
+      AND  password IS NOT NULL
+      AND  LENGTH(password) < ?
+''', (min_len,))
+violating_rows = c.fetchall()    # (username, plen, password)
+
+if violating_rows:
+    # Build HTML table: User | Actual Len | Policy Len | Password
+    hbt_policy = HtmlBuilder()
+    headers = ["Username", "Password Length", "Policy Min Length", "Password"]
+    data = [(u, plen, min_len, ("" if p is None else p))
+            for u, plen, p in violating_rows]
+    hbt_policy.add_table_to_html(data, headers, cols_to_not_escape=3)
+
+    policy_filename = hbt_policy.write_html_report("password_policy_violations.html")
+
+    # Add a line to summary_table → Count • Description • Details link
+    summary_table.append((
+        len(violating_rows), pct(len(violating_rows), num_hashes),
+        f"Accounts With Passwords Shorter Than {min_len} Characters",
+        f'<a href="{policy_filename}">Details</a>'
+    ))
+else:
+    print(f"[+] No cracked passwords shorter than {min_len} characters.")
+
+try:
+    print("[*] Checking for users whose password equals their username...")
+    c.execute("""
+        SELECT username, password, LENGTH(password) AS plen, nt_hash
+        FROM hash_infos
+        WHERE history_index = -1
+          AND password IS NOT NULL
+    """)
+    rows = c.fetchall()
+
+    offenders = []
+    for username, password, plen, nt_hash in rows:
+        if username and password and username == password:
+            offenders.append((username, password, plen, nt_hash))
+
+    # Build the HTML details table
+    if offenders:
+        print(f"[+] Found {len(offenders)} users with username == password")
+        hbt_user_as_pass = HtmlBuilder()
+        hbt_user_as_pass.add_table_to_html(
+            offenders,
+            ["Username", "Password", "Password Length", "NT Hash"]
+        )
+
+        filename = hbt_user_as_pass.write_html_report("username_equals_password.html")
+        summary_table.append((
+            len(offenders),
+            pct(len(offenders), num_hashes),
+            "Accounts Using Username As Password",
+            f'<a href="{filename}">Details</a>'
+        ))
+except Exception as e:
+    print(f"[!] Error while checking username==password: {e!r}")
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
-summary_table.append((c.fetchone()[0], "LM Hashes (Non-blank)", None))
+num_lm_hashes = c.fetchone()[0]
+percent_lm_hashes = pct(num_lm_hashes, num_hashes)
+summary_table.append((num_lm_hashes, percent_lm_hashes, "LM Hashes (Non-blank)", None))
 
 # Number of UNIQUE LM hashes in the NTDS, excluding the blank value
 c.execute('SELECT count(DISTINCT lm_hash) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')
-summary_table.append((c.fetchone()[0], "Unique LM Hashes (Non-blank)", None))
+num_unique_lm_hashes = c.fetchone()[0]
+percent_unique_lm_hashes = pct(num_unique_lm_hashes, num_hashes)
+summary_table.append((num_unique_lm_hashes, percent_unique_lm_hashes, "Unique LM Hashes (Non-blank)", None))
 
 # Number of passwords that are LM cracked for which you don't have the exact (case sensitive) password.
 c.execute('SELECT lm_hash, lm_pass_left, lm_pass_right, nt_hash FROM hash_infos WHERE (lm_pass_left is not "" or lm_pass_right is not "") AND history_index = -1 and password is NULL and lm_hash is not "aad3b435b51404eeaad3b435b51404ee" group by lm_hash')
-list = c.fetchall()
-num_lm_hashes_cracked_where_nt_hash_not_cracked = len(list)
-output = "WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
+rows = c.fetchall()
+num_lm_hashes_cracked_where_nt_hash_not_cracked = len(rows)
+output = "<div class='text-left'>WARNING there were %d unique LM hashes for which you do not have the password." % num_lm_hashes_cracked_where_nt_hash_not_cracked
 if num_lm_hashes_cracked_where_nt_hash_not_cracked != 0:
     hbt = HtmlBuilder()
     headers = ["LM Hash", "Left Portion of Password",
                "Right Portion of Password", "NT Hash"]
-    hbt.add_table_to_html(list, headers)
+    hbt.add_table_to_html(rows, headers)
     filename = hbt.write_html_report("lm_noncracked.html")
-    hb.build_html_body_string(
-        output + ' <a href="' + filename + '">Details</a>')
-    output2 = "</br> Cracking these to their 7-character upcased representation is easy with Hashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this Hashcat command to crack all LM hashes:</br> <strong>./hashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
-    hb.build_html_body_string(output2)
+    output += ' <a href="' + filename + '">Details</a>'
+    output += "</br></br>Cracking these to their 7-character upcased representation is easy with Hashcat and this tool will determine the correct case and concatenate the two halves of the password for you!</br></br> Try this Hashcat command to crack all LM hashes:</br> <strong>./hashcat64.bin -m 3000 -a 3 customer.ntds -1 ?a ?1?1?1?1?1?1?1 --increment</strong></br></br> Or for John, try this:</br> <strong>john --format=LM customer.ntds</strong></br>"
+    hb.build_html_body_string(output)
 
 # Count and List of passwords that were only able to be cracked because the LM hash was available, includes usernames
 c.execute('SELECT username_full,password,LENGTH(password) as plen,only_lm_cracked FROM hash_infos WHERE only_lm_cracked = 1 ORDER BY plen AND history_index = -1')
-list = c.fetchall()
+rows = c.fetchall()
 hbt = HtmlBuilder()
 headers = ["Username", "Password", "Password Length", "Only LM Cracked"]
-hbt.add_table_to_html(list, headers)
+hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("users_only_cracked_through_lm.html")
-summary_table.append((len(list), "Passwords Only Cracked via LM Hash",
+percent_only_lm_cracked = pct(len(rows), num_hashes)
+summary_table.append((len(rows), percent_only_lm_cracked, "Passwords Only Cracked via LM Hash",
                       "<a href=\"" + filename + "\">Details</a>"))
 c.execute('SELECT COUNT(DISTINCT nt_hash) FROM hash_infos WHERE only_lm_cracked = 1 AND history_index = -1')
+num_unique_lm_hashes_not_cracked = c.fetchone()[0]
+percent_unique_lm_hashes_not_cracked = pct(num_unique_lm_hashes_not_cracked, num_hashes)
 summary_table.append(
-    (c.fetchone()[0], "Unique LM Hashes Cracked Where NT Hash was Not Cracked", None))
+    (num_unique_lm_hashes_not_cracked, percent_unique_lm_hashes_not_cracked, 
+     "Unique LM Hashes Cracked Where NT Hash Was Not Cracked", None))
 
 # Password length statistics
-c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen is not 0 GROUP BY plen ORDER BY plen')
-list = c.fetchall()
+c.execute('SELECT LENGTH(password) as plen,COUNT(password) FROM hash_infos WHERE plen is not NULL AND history_index = -1 AND plen <> 0 GROUP BY plen ORDER BY plen')
+rows = c.fetchall()
 counter = 0
-for tuple in list:
-    length = str(tuple[0])
-    c.execute('SELECT username FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ' + length)
+for plen, count in rows:
+    c.execute('SELECT username FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ?', (plen,))
     usernames = c.fetchall()
     hbt = HtmlBuilder()
-    headers = ["Users with a password length of " + length]
+    headers = ["Users with a password length of " + str(plen)]
     hbt.add_table_to_html(usernames, headers)
     filename = hbt.write_html_report(str(counter) + "length_usernames.html")
-    list[counter] += ("<a href=\"" + filename + "\">Details</a>",)
+    rows[counter] += ("<a href=\"" + filename + "\">Details</a>",)
     counter += 1
 hbt = HtmlBuilder()
 headers = ["Password Length", "Count", "Details"]
-hbt.add_table_to_html(list, headers, 2)
+hbt.add_table_to_html(rows, headers, 2)
 c.execute('SELECT COUNT(password) as count, LENGTH(password) as plen FROM hash_infos WHERE plen is not NULL AND history_index = -1 and plen is not 0 GROUP BY plen ORDER BY count DESC')
-list = c.fetchall()
+rows = c.fetchall()
 headers = ["Count", "Password Length"]
-hbt.add_table_to_html(list, headers)
+hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("password_length_stats.html")
-summary_table.append((None, "Password Length Stats",
+summary_table.append((None, None, "Password Length Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Top Ten Passwords Used
 c.execute('SELECT password,COUNT(password) as count FROM hash_infos WHERE password is not NULL AND history_index = -1 and password is not "" GROUP BY password ORDER BY count DESC LIMIT 20')
-list = c.fetchall()
+rows = c.fetchall()
 hbt = HtmlBuilder()
 headers = ["Password", "Count"]
-hbt.add_table_to_html(list, headers)
+hbt.add_table_to_html(rows, headers)
 filename = hbt.write_html_report("top_password_stats.html")
-summary_table.append((None, "Top Password Use Stats",
+summary_table.append((None, None, "Top Password Use Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password Reuse Statistics (based only on NT hash)
 c.execute('SELECT nt_hash, COUNT(nt_hash) as count, password FROM hash_infos WHERE nt_hash is not "31d6cfe0d16ae931b73c59d7e0c089c0" AND history_index = -1 GROUP BY nt_hash ORDER BY count DESC LIMIT 20')
-list = c.fetchall()
+rows = c.fetchall()
 counter = 0
-for tuple in list:
+for idx, (nt_hash, hit_count, pwd) in enumerate(rows):
     c.execute(
-        'SELECT username FROM hash_infos WHERE nt_hash = \"' + tuple[0] + '\" AND history_index = -1')
+        'SELECT username FROM hash_infos WHERE nt_hash = ? AND history_index = -1', (nt_hash,))
     usernames = c.fetchall()
-    password = tuple[2]
-    if password is None:
-        password = ""
+    if pwd is None:
+        pwd = ""
     hbt = HtmlBuilder()
     headers = ["Users Sharing a hash:password of " +
-               sanitize(tuple[0]) + ":" + sanitize(password)]
+               sanitize(nt_hash) + ":" + sanitize(pwd)]
     hbt.add_table_to_html(usernames, headers)
     filename = hbt.write_html_report(str(counter) + "reuse_usernames.html")
-    list[counter] += ("<a href=\"" + filename + "\">Details</a>",)
+    rows[counter] += ("<a href=\"" + filename + "\">Details</a>",)
     counter += 1
 hbt = HtmlBuilder()
 headers = ["NT Hash", "Count", "Password", "Details"]
-hbt.add_table_to_html(list, headers, 3)
+hbt.add_table_to_html(rows, headers, 3)
 filename = hbt.write_html_report("password_reuse_stats.html")
-summary_table.append((None, "Password Reuse Stats",
+summary_table.append((None, None, "Password Reuse Stats",
                       "<a href=\"" + filename + "\">Details</a>"))
 
 # Password History Stats
@@ -491,15 +725,15 @@ else:
     command += (' FROM hash_infos GROUP BY history_base_username) ')
     command += "WHERE coalesce(" + ",".join(column_names) + ") is not NULL"
     c.execute(command)
-    list = c.fetchall()
+    rows = c.fetchall()
     headers = password_history_headers
-    hbt.add_table_to_html(list, headers, 8)
+    hbt.add_table_to_html(rows, headers, 8)
 filename=hbt.write_html_report("password_history.html")
-summary_table.append((None, "Password History",
+summary_table.append((None, None, "Password History",
                 "<a href=\"" + filename + "\">Details</a>"))
 
 # Write out the main report page
-hb.add_table_to_html(summary_table, summary_table_headers, 2)
+hb.add_table_to_html(summary_table, summary_table_headers, 3)
 hb.write_html_report(filename_for_html_report)
 print("The Report has been written to the \"" + filename_for_html_report +
       "\" file in the \"" + folder_for_html_report + "\" directory")
