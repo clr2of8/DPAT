@@ -244,6 +244,81 @@ def crack_it(nt_hash, lm_pass):
     return password
 
 
+# NTLM hash function
+def ntlm_hash(s: str) -> str:
+    """Return NT hash (MD4 over UTF-16LE) of a string as lowercase hex."""
+    data = s.encode('utf-16le')
+
+    # 1) hashlib (often unavailable for MD4)
+    try:
+        import hashlib
+        return hashlib.new('md4', data).hexdigest().lower()
+    except Exception as e:
+        print(f"[DEBUG] hashlib md4 unavailable: {e}")
+
+    # 2) pycryptodome → Crypto.*
+    try:
+        from Crypto.Hash import MD4
+        return MD4.new(data).hexdigest().lower()
+    except Exception as e:
+        print(f"[DEBUG] PyCryptodome (Crypto) MD4 failed: {e}")
+
+    # 3) pycryptodomex (alternative) → Cryptodome.*
+    try:
+        from Cryptodome.Hash import MD4
+        return MD4.new(data).hexdigest().lower()
+    except Exception as e:
+        print(f"[DEBUG] PyCryptodomex (Cryptodome) MD4 failed: {e}")
+
+    # 4) passlib
+    try:
+        from passlib.hash import nthash
+        return nthash.hash(s).lower()
+    except Exception as e:
+        print(f"[DEBUG] passlib nthash failed: {e}")
+
+    # 5) impacket
+    try:
+        from impacket.ntlm import compute_nthash
+        return compute_nthash(s).hex().lower()
+    except Exception as e:
+        print(f"[DEBUG] impacket compute_nthash failed: {e}")
+
+    raise RuntimeError("No NT hash backend available. Install pycryptodome (or pycryptodomex) / passlib / impacket.")
+
+
+def username_candidates(u: str, u_full: str | None = None) -> set[str]:
+    """
+    Expand plausible username strings that users might set as their password:
+    - raw username
+    - DOMAIN\\user -> user
+    - user@domain -> user
+    - case variants (lower/upper/capitalize)
+    """
+    bases: set[str] = set()
+    for val in (u, u_full):
+        if not val:
+            continue
+        val = val.strip()
+        if not val:
+            continue
+        bases.add(val)
+        if '\\' in val:             # DOMAIN\user
+            bases.add(val.split('\\', 1)[1])
+        if '@' in val:              # user@domain
+            bases.add(val.split('@', 1)[0])
+
+    # Normalize and generate simple case variants
+    bases = {b for b in (x.strip() for x in bases) if b}
+    cands: set[str] = set()
+    for b in bases:
+        cands.add(b)
+        cands.add(b.lower())
+        cands.add(b.upper())
+        cands.add(b.capitalize())
+    return cands
+
+
 if not speed_it_up:
     # Create tables and indices
     c.execute('''CREATE TABLE hash_infos
@@ -572,6 +647,7 @@ if violating_rows:
 else:
     print(f"[+] No cracked passwords shorter than {min_len} characters.")
 
+# Users whose password equals their username
 try:
     print("[*] Checking for users whose password equals their username...")
     c.execute("""
@@ -605,6 +681,84 @@ try:
         ))
 except Exception as e:
     print(f"[!] Error while checking username==password: {e!r}")
+
+try:
+    print("[*] Checking for users whose password equals their username by hash comparison...")
+    c.execute("""
+        SELECT username, 
+               COALESCE(username_full, username) AS username_full,
+               nt_hash,
+               password
+        FROM hash_infos
+        WHERE history_index = -1
+          AND nt_hash IS NOT NULL
+          AND username IS NOT NULL
+    """)
+    rows = c.fetchall()
+
+    # Track users already found by the "cracked password equals username" pass to avoid dupes
+    already_flagged: set[str] = set()
+    try:
+        # Seed already_flagged with offenders from the previous pass
+        already_flagged.update(o[0] for o in offenders)  # offenders: [(username, password, plen, nt_hash)]
+    except NameError:
+        pass
+
+    offenders_hashed: list[tuple[str, str, int, str]] = []
+
+    for username, username_full, nt_hash, cracked_pw in rows:
+        # If the earlier cracked-check already flagged this user, skip
+        if username in already_flagged:
+            continue
+
+        # Quick win: if we *do* have a cracked password, check equality (case-insensitive) one more time
+        # in case the earlier pass used strict case. Optional — remove if you don’t want this.
+        if cracked_pw:
+            if cracked_pw == username or cracked_pw.lower() == username.lower():
+                offenders_hashed.append((username_full or username, cracked_pw, len(cracked_pw), nt_hash))
+                continue
+
+        # Build username-based password candidates and compare by NT hash
+        cands = username_candidates(username, username_full)
+        try:
+            target = nt_hash.lower()
+        except Exception:
+            target = nt_hash
+
+        matched = False
+        for cand in cands:
+            try:
+                h = ntlm_hash(cand)
+            except RuntimeError as e:
+                print(f"[!] NT hash backend unavailable: {e}")
+                raise
+            if h == target:
+                offenders_hashed.append((username_full or username, cand, len(cand), nt_hash))
+                matched = True
+                break
+
+        if not matched and __debug__:
+            # Optional noisy debug
+            pass
+
+    if offenders_hashed:
+        print(f"[+] Found {len(offenders_hashed)} additional users whose password == username (hash match)")
+        hbt_user_as_pass_hash = HtmlBuilder()
+        hbt_user_as_pass_hash.add_table_to_html(
+            offenders_hashed,
+            ["Username", "Derived Password (from username)", "Password Length", "NT Hash"]
+        )
+        filename2 = hbt_user_as_pass_hash.write_html_report("username_equals_password_by_hash.html")
+        summary_table.append((
+            len(offenders_hashed),
+            pct(len(offenders_hashed), num_hashes),
+            "Accounts Using Username As Password (by hash)",
+            f'<a href="{filename2}">Details</a>'
+        ))
+    else:
+        print("[*] No additional username==password accounts found by hash comparison.")
+except Exception as e:
+    print(f"[!] Error while hash-checking username==password: {e!r}")
 
 # Number of LM hashes in the NTDS file, excluding the blank value
 c.execute('SELECT count(*) FROM hash_infos WHERE lm_hash is not "aad3b435b51404eeaad3b435b51404ee" AND history_index = -1')

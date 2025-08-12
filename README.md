@@ -142,6 +142,11 @@ If you would like to utilize it for providing these extra statistics you will ne
 
 They are simple scripts with usage linked above and using them should be straightforward.
 
+## Author Credits
+
+- [Carrie Roberts](https://x.com/OrOneEqualsOne)
+- [Dylan Evans](https://x.com/fin3ss3g0d)
+
 ## Originally Sponsored by:
 
 [![Black Hills Information Security](https://www.blackhillsinfosec.com/wp-content/uploads/2018/12/BHIS-logo-L-1024x1024-221x221.png)](http://www.blackhillsinfosec.com)
