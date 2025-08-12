@@ -752,7 +752,7 @@ try:
         summary_table.append((
             len(offenders_hashed),
             pct(len(offenders_hashed), num_hashes),
-            "Accounts Using Username As Password (by hash)",
+            "Accounts Using Username As Password Not Cracked (by hash)",
             f'<a href="{filename2}">Details</a>'
         ))
     else:
