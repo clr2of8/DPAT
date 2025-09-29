@@ -341,7 +341,7 @@ if not speed_it_up:
         user_name = ""
         try:
             users = []
-            fing = io.open(group[1], encoding='utf-16')
+            fing = io.open(group[1], encoding='cp1252' if not args.ch_encoding else args.ch_encoding)
             for line in fing:
                 if "MemberDomain" in line:
                     user_domain = (line.split(":")[1]).strip()
@@ -361,9 +361,9 @@ if not speed_it_up:
                 for line in fing:
                     users.append(line.rstrip("\n"))
                 fing.close()
-        except:
+        except Exception as e:
             fing.close()
-            print("unknown exception while processing group file(s)")
+            print("Error reading group file %s: %s" % (group[1], str(e)))
         groups_users[group[0]] = users
 
     # Read in NTDS file
