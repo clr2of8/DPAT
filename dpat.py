@@ -461,16 +461,14 @@ class DataSanitizer:
 class HTMLReportBuilder:
     """Builds HTML reports with proper structure and styling."""
     
-    def __init__(self, report_directory: str, main_report_file: str = "_DomainPasswordAuditReport.html"):
+    def __init__(self, report_directory: str):
         """
         Initialize HTML report builder.
         
         Args:
             report_directory: Directory to save reports
-            main_report_file: Filename of the main report for navigation links
         """
         self.report_directory = report_directory
-        self.main_report_file = main_report_file
         self.body_content = ""
         self.charts_data = []  # Store chart data for later initialization
     
@@ -608,7 +606,7 @@ class HTMLReportBuilder:
             "<!-- Bootstrap 5 Navbar -->\n"
             "<nav class='navbar navbar-expand-lg navbar-dark bg-primary fixed-top'>\n"
             "  <div class='container-fluid'>\n"
-            f"    <a class='navbar-brand fw-bold' href='{self.main_report_file}'><img src='DPAT icon.png' alt='DPAT' width='30' height='30' style='margin-right: 8px; vertical-align: middle;'>DPAT Report</a>\n"
+            "    <a class='navbar-brand fw-bold' href='_DomainPasswordAuditReport.html'><img src='DPAT icon.png' alt='DPAT' width='30' height='30' style='margin-right: 8px; vertical-align: middle;'>DPAT Report</a>\n"
             "    <button class='navbar-toggler' type='button' data-bs-toggle='collapse' data-bs-target='#navbarNav'>\n"
             "      <span class='navbar-toggler-icon'></span>\n"
             "    </button>\n"
@@ -1390,7 +1388,7 @@ def main():
         sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
                          for row in rows]
         
-        report_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+        report_builder = HTMLReportBuilder(config.report_directory)
         report_builder.add_table(sanitized_rows, 
                                ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
         report_builder.write_report("all_hashes.html")
@@ -1451,7 +1449,7 @@ def main():
                     sanitized_kerb_rows = [sanitizer.sanitize_table_row(row, [2], [1], config.sanitize_output) 
                                          for row in cracked_kerb_rows]  # password at index 2, nt_hash at index 1
                     
-                    kerb_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+                    kerb_builder = HTMLReportBuilder(config.report_directory)
                     kerb_builder.add_table(sanitized_kerb_rows, 
                                          ["Username", "NT Hash", "Password"], cols_to_not_escape=2)
                     kerb_filename = kerb_builder.write_report("kerberoast_cracked.html")
@@ -1492,7 +1490,7 @@ def main():
             sanitized_policy_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
                                    for row in policy_rows]
             
-            policy_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            policy_builder = HTMLReportBuilder(config.report_directory)
             policy_builder.add_table(sanitized_policy_rows, 
                                    ["Username", "Password", "Password Length", "NT Hash"])
             policy_filename = policy_builder.write_report("password_policy_violations.html")
@@ -1509,7 +1507,7 @@ def main():
             sanitized_up_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
                                for row in username_password_rows]
             
-            up_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            up_builder = HTMLReportBuilder(config.report_directory)
             up_builder.add_table(sanitized_up_rows, 
                                ["Username", "Password", "Password Length", "NT Hash"])
             up_filename = up_builder.write_report("username_equals_password.html")
@@ -1576,7 +1574,7 @@ def main():
             sanitized_hash_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
                                  for row in offenders_hashed]
             
-            hash_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            hash_builder = HTMLReportBuilder(config.report_directory)
             hash_builder.add_table(sanitized_hash_rows, 
                                  ["Username", "Derived Password (from username)", "Password Length", "NT Hash"])
             hash_filename = hash_builder.write_report("username_equals_password_by_hash.html")
@@ -1608,7 +1606,7 @@ def main():
             sanitized_lm_only_rows = [sanitizer.sanitize_table_row(row, [1], [], config.sanitize_output) 
                                      for row in lm_only_rows]
             
-            lm_only_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            lm_only_builder = HTMLReportBuilder(config.report_directory)
             lm_only_builder.add_table(sanitized_lm_only_rows, 
                                     ["Username", "Password", "Password Length", "Only LM Cracked"])
             lm_only_filename = lm_only_builder.write_report("users_only_cracked_through_lm.html")
@@ -1621,7 +1619,7 @@ def main():
             sanitized_lm_rows = [sanitizer.sanitize_table_row(row, [1, 2], [0, 3], config.sanitize_output) 
                                for row in lm_cracked_nt_not_rows]
             
-            lm_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            lm_builder = HTMLReportBuilder(config.report_directory)
             lm_builder.add_table(sanitized_lm_rows, 
                                ["LM Hash", "Left Portion of Password", "Right Portion of Password", "NT Hash"])
             lm_filename = lm_builder.write_report("lm_noncracked.html")
@@ -1642,7 +1640,7 @@ def main():
             sanitized_top_rows = [sanitizer.sanitize_table_row(row, [0], [], config.sanitize_output) 
                                 for row in top_password_rows]
             
-            top_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            top_builder = HTMLReportBuilder(config.report_directory)
             top_builder.add_table(sanitized_top_rows, ["Password", "Count"])
             top_filename = top_builder.write_report("top_password_stats.html")
             summary_table.append((None, None, "Top Password Use Stats", f'<a href="{top_filename}">Details</a>'))
@@ -1661,7 +1659,7 @@ def main():
                 db_manager.cursor.execute('SELECT username_full FROM hash_infos WHERE history_index = -1 AND LENGTH(password) = ?', (plen,))
                 usernames = db_manager.cursor.fetchall()
                 
-                length_detail_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+                length_detail_builder = HTMLReportBuilder(config.report_directory)
                 length_detail_builder.add_table(usernames, [f"Users with a password length of {plen}"])
                 detail_filename = length_detail_builder.write_report(f"{counter}length_usernames.html")
                 
@@ -1669,7 +1667,7 @@ def main():
                 length_rows[counter] = (plen, count, f'<a href="{detail_filename}">Details</a>')
                 counter += 1
             
-            length_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            length_builder = HTMLReportBuilder(config.report_directory)
             length_builder.add_table(length_rows, ["Password Length", "Count", "Details"], cols_to_not_escape=2)
             
             # Add second table ordered by count DESC
@@ -1701,7 +1699,7 @@ def main():
                 usernames = [row[0] for row in db_manager.cursor.fetchall()]
                 
                 # Create individual details page for this password reuse
-                details_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+                details_builder = HTMLReportBuilder(config.report_directory)
                 # Convert usernames list to list of tuples for proper table formatting
                 username_rows = [(username,) for username in usernames]
                 
@@ -1720,7 +1718,7 @@ def main():
             sanitized_reuse_rows = [sanitizer.sanitize_table_row(row, [2], [0], config.sanitize_output) 
                                    for row in processed_reuse_rows]
             
-            reuse_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            reuse_builder = HTMLReportBuilder(config.report_directory)
             reuse_builder.add_table(sanitized_reuse_rows, ["NT Hash", "Count", "Password", "Details"], cols_to_not_escape=3)
             reuse_filename = reuse_builder.write_report("password_reuse_stats.html")
             summary_table.append((None, None, "Password Reuse Stats", f'<a href="{reuse_filename}">Details</a>'))
@@ -1748,24 +1746,18 @@ def main():
             history_rows = db_manager.cursor.fetchall()
             
             if history_rows:
-                # Sanitize password columns (all columns except index 0 which is username)
-                # All columns from index 1 onwards are passwords
-                password_column_indices = list(range(1, len(password_history_headers)))
-                sanitized_history_rows = [sanitizer.sanitize_table_row(row, password_column_indices, [], config.sanitize_output) 
-                                        for row in history_rows]
-                
-                history_builder = HTMLReportBuilder(config.report_directory, config.output_file)
-                history_builder.add_table(sanitized_history_rows, password_history_headers)
+                history_builder = HTMLReportBuilder(config.report_directory)
+                history_builder.add_table(history_rows, password_history_headers)
                 history_filename = history_builder.write_report("password_history.html")
                 summary_table.append((None, None, "Password History", f'<a href="{history_filename}">Details</a>'))
         else:
-            history_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            history_builder = HTMLReportBuilder(config.report_directory)
             history_builder.body_content = "There was no history contained in the password files. If you would like to get the password history, run secretsdump.py with the flag \"-history\".<br><br>Sample secretsdump.py command: secretsdump.py -system registry/SYSTEM -ntds \"Active Directory/ntds.dit\" LOCAL -outputfile customer -history"
             history_filename = history_builder.write_report("password_history.html")
             summary_table.append((None, None, "Password History", f'<a href="{history_filename}">Details</a>'))
         
         # Generate main summary report
-        summary_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+        summary_builder = HTMLReportBuilder(config.report_directory)
         
         # Add the summary table first
         summary_builder.add_table(summary_table, ("Count", "Percent", "Description", "More Info"), cols_to_not_escape=3)
@@ -1957,7 +1949,7 @@ def main():
                                        for row in processed_member_rows]
                 
                 member_headers = ["Username", "NT Hash", "Users Sharing this Hash", "Share Count", "Password", "Non-Blank LM Hash?"]
-                member_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+                member_builder = HTMLReportBuilder(config.report_directory)
                 member_builder.add_table(sanitized_member_rows, member_headers, cols_to_not_escape=2)
                 
                 # Sanitize group name for filename
@@ -1976,7 +1968,7 @@ def main():
                                         for row in cracked_rows]
                 
                 cracked_headers = [f'Username of "{group_name}" Member', "Password Length", "Password", "Only LM Cracked"]
-                cracked_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+                cracked_builder = HTMLReportBuilder(config.report_directory)
                 cracked_builder.add_table(sanitized_cracked_rows, cracked_headers)
                 cracked_filename = cracked_builder.write_report(f"{safe_group_name}_cracked_passwords.html")
                 
@@ -1991,7 +1983,7 @@ def main():
                 ))
             
             # Generate groups summary page
-            groups_builder = HTMLReportBuilder(config.report_directory, config.output_file)
+            groups_builder = HTMLReportBuilder(config.report_directory)
             groups_builder.add_table(group_summary_rows, group_page_headers, cols_to_not_escape=(4, 5))
             groups_filename = groups_builder.write_report("groups_stats.html")
             
