@@ -265,11 +265,9 @@ class TestSampleDataIntegration(DPATTestCase):
         ''')
         
         rows = cursor.fetchall()
-        sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                         for row in rows]
         
         report_builder = HTMLReportBuilder(config.report_directory)
-        report_builder.add_table(sanitized_rows, 
+        report_builder.add_table(rows, 
                                ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
         report_builder.write_report("sample_data_report.html")
         
@@ -320,11 +318,9 @@ class TestSampleDataIntegration(DPATTestCase):
         ''')
         
         rows = cursor.fetchall()
-        sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [2], config.sanitize_output) 
-                         for row in rows]
         
         report_builder = HTMLReportBuilder(config.report_directory)
-        report_builder.add_table(sanitized_rows, ["Username", "Password", "NT Hash"])
+        report_builder.add_table(rows, ["Username", "Password", "NT Hash"])
         report_builder.write_report("sample_data_sanitized.html")
         
         # Verify sanitization

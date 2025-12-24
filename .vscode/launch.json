@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-p", "8", "-w"]
+            "args": ["-n", "sample_data/customer.ntds", "-c","sample_data/oclHashcat.pot","-g","sample_data/Domain Admins.txt", "sample_data/Enterprise Admins.txt", "-p", "8", "-w"]
         },
         {
             "name": "DPAT basic Umlauts",
@@ -15,7 +15,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\hashcat.potfile", "-p", "8"]
+            "args": ["-n", "sample_data/umlauts/customer.ntds", "-c","sample_data/umlauts/hashcat.potfile", "-p", "8"]
         },         
         {
             "name": "DPAT basic History",
@@ -23,7 +23,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-p", "8"]
+            "args": ["-n", "sample_data/history/customer.ntds", "-c","sample_data/history/hashcat.potfile", "-p", "8"]
         },
         {
             "name": "DPAT basic History small",
@@ -31,7 +31,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer-small.ntds", "-c","sample_data\\history\\john-customer-small.pot", "-p", "8", "-w"]
+            "args": ["-n", "sample_data/history/customer-small.ntds", "-c","sample_data/history/john-customer-small.pot", "-p", "8", "-w"]
         },
         {
             "name": "DPAT basic History - Sanitized",
@@ -39,7 +39,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-p", "8", "-s"]
+            "args": ["-n", "sample_data/history/customer.ntds", "-c","sample_data/history/hashcat.potfile", "-p", "8", "-s"]
         },      
         {
             "name": "DPAT basic Umlauts JtR",
@@ -47,7 +47,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\john.pot", "-p", "8"]
+            "args": ["-n", "sample_data/umlauts/customer.ntds", "-c","sample_data/umlauts/john.pot", "-p", "8"]
         },
         {
             "name": "DPAT sanitized",
@@ -55,7 +55,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot", "-p", "8", "-s"]
+            "args": ["-n", "sample_data/customer.ntds", "-c","sample_data/oclHashcat.pot", "-p", "8", "-s"]
         },
         {
             "name": "DPAT All",
@@ -63,7 +63,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-p", "8", "-s","-w"]
+            "args": ["-n", "sample_data/customer.ntds", "-c","sample_data/oclHashcat.pot","-g","sample_data/Domain Admins.txt", "sample_data/Enterprise Admins.txt", "-p", "8", "-s","-w"]
         },
         {
             "name": "gen data",

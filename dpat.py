@@ -425,37 +425,7 @@ class DataSanitizer:
         else:
             return value
     
-    @staticmethod
-    def sanitize_table_row(row: Tuple, password_indices: List[int], hash_indices: List[int], 
-                          should_sanitize: bool = True) -> Tuple:
-        """
-        Sanitize passwords and hashes in table rows.
-        
-        Args:
-            row: Table row tuple
-            password_indices: Column indices containing passwords
-            hash_indices: Column indices containing hashes
-            should_sanitize: Whether to apply sanitization
-            
-        Returns:
-            Sanitized row tuple
-        """
-        if not should_sanitize:
-            return row
-        
-        sanitized_row = list(row)
-        
-        # Sanitize password columns
-        for idx in password_indices:
-            if idx < len(sanitized_row) and sanitized_row[idx] is not None:
-                sanitized_row[idx] = DataSanitizer.sanitize_value(str(sanitized_row[idx]))
-        
-        # Sanitize hash columns
-        for idx in hash_indices:
-            if idx < len(sanitized_row) and sanitized_row[idx] is not None:
-                sanitized_row[idx] = DataSanitizer.sanitize_value(str(sanitized_row[idx]))
-        
-        return tuple(sanitized_row)
+
 
 
 class HTMLReportBuilder:
@@ -1385,11 +1355,9 @@ def main():
         '''
         
         rows = db_manager.cursor.execute(sql).fetchall()
-        sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                         for row in rows]
         
         report_builder = HTMLReportBuilder(config.report_directory)
-        report_builder.add_table(sanitized_rows, 
+        report_builder.add_table(rows, 
                                ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
         report_builder.write_report("all_hashes.html")
         
@@ -1445,12 +1413,8 @@ def main():
                 cracked_kerb_rows = db_manager.cursor.fetchall()
                 
                 if cracked_kerb_rows:
-                    # Sanitize passwords and hashes in the data
-                    sanitized_kerb_rows = [sanitizer.sanitize_table_row(row, [2], [1], config.sanitize_output) 
-                                         for row in cracked_kerb_rows]  # password at index 2, nt_hash at index 1
-                    
                     kerb_builder = HTMLReportBuilder(config.report_directory)
-                    kerb_builder.add_table(sanitized_kerb_rows, 
+                    kerb_builder.add_table(cracked_kerb_rows, 
                                          ["Username", "NT Hash", "Password"], cols_to_not_escape=2)
                     kerb_filename = kerb_builder.write_report("kerberoast_cracked.html")
                     
@@ -1487,11 +1451,9 @@ def main():
                                         WHERE LENGTH(password) < ? AND password IS NOT NULL AND history_index = -1
                                         ORDER BY plen''', (config.min_password_length,))
             policy_rows = db_manager.cursor.fetchall()
-            sanitized_policy_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                                   for row in policy_rows]
             
             policy_builder = HTMLReportBuilder(config.report_directory)
-            policy_builder.add_table(sanitized_policy_rows, 
+            policy_builder.add_table(policy_rows, 
                                    ["Username", "Password", "Password Length", "NT Hash"])
             policy_filename = policy_builder.write_report("password_policy_violations.html")
             summary_table.append((policy_violations, policy_percent, "Password Policy Violations", f'<a href="{policy_filename}">Details</a>'))
@@ -1504,11 +1466,8 @@ def main():
         username_password_rows = db_manager.cursor.fetchall()
         
         if username_password_rows:
-            sanitized_up_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                               for row in username_password_rows]
-            
             up_builder = HTMLReportBuilder(config.report_directory)
-            up_builder.add_table(sanitized_up_rows, 
+            up_builder.add_table(username_password_rows, 
                                ["Username", "Password", "Password Length", "NT Hash"])
             up_filename = up_builder.write_report("username_equals_password.html")
             up_percent = calculate_percentage(len(username_password_rows), cracked_count) if cracked_count > 0 else 0
@@ -1571,11 +1530,8 @@ def main():
                 already_flagged.add(username)  # Prevent duplicates
         
         if offenders_hashed:
-            sanitized_hash_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                                 for row in offenders_hashed]
-            
             hash_builder = HTMLReportBuilder(config.report_directory)
-            hash_builder.add_table(sanitized_hash_rows, 
+            hash_builder.add_table(offenders_hashed, 
                                  ["Username", "Derived Password (from username)", "Password Length", "NT Hash"])
             hash_filename = hash_builder.write_report("username_equals_password_by_hash.html")
             hash_percent = calculate_percentage(len(offenders_hashed), total_hashes)
@@ -1603,11 +1559,8 @@ def main():
         lm_only_rows = db_manager.cursor.fetchall()
         
         if lm_only_rows:
-            sanitized_lm_only_rows = [sanitizer.sanitize_table_row(row, [1], [], config.sanitize_output) 
-                                     for row in lm_only_rows]
-            
             lm_only_builder = HTMLReportBuilder(config.report_directory)
-            lm_only_builder.add_table(sanitized_lm_only_rows, 
+            lm_only_builder.add_table(lm_only_rows, 
                                     ["Username", "Password", "Password Length", "Only LM Cracked"])
             lm_only_filename = lm_only_builder.write_report("users_only_cracked_through_lm.html")
             lm_only_percent = calculate_percentage(len(lm_only_rows), total_hashes)
@@ -1616,11 +1569,8 @@ def main():
         # Add LM hash analysis if we found any
         if lm_cracked_count > 0:
             # Generate the LM noncracked report
-            sanitized_lm_rows = [sanitizer.sanitize_table_row(row, [1, 2], [0, 3], config.sanitize_output) 
-                               for row in lm_cracked_nt_not_rows]
-            
             lm_builder = HTMLReportBuilder(config.report_directory)
-            lm_builder.add_table(sanitized_lm_rows, 
+            lm_builder.add_table(lm_cracked_nt_not_rows, 
                                ["LM Hash", "Left Portion of Password", "Right Portion of Password", "NT Hash"])
             lm_filename = lm_builder.write_report("lm_noncracked.html")
             lm_cracked_percent = calculate_percentage(lm_cracked_count, total_hashes)
@@ -1637,11 +1587,8 @@ def main():
         top_password_rows = db_manager.cursor.fetchall()
         
         if top_password_rows:
-            sanitized_top_rows = [sanitizer.sanitize_table_row(row, [0], [], config.sanitize_output) 
-                                for row in top_password_rows]
-            
             top_builder = HTMLReportBuilder(config.report_directory)
-            top_builder.add_table(sanitized_top_rows, ["Password", "Count"])
+            top_builder.add_table(top_password_rows, ["Password", "Count"])
             top_filename = top_builder.write_report("top_password_stats.html")
             summary_table.append((None, None, "Top Password Use Stats", f'<a href="{top_filename}">Details</a>'))
         
@@ -1715,11 +1662,8 @@ def main():
                 # Add details link to the row
                 processed_reuse_rows.append((nt_hash, hit_count, password, f'<a href="{details_filename}">Details</a>'))
             
-            sanitized_reuse_rows = [sanitizer.sanitize_table_row(row, [2], [0], config.sanitize_output) 
-                                   for row in processed_reuse_rows]
-            
             reuse_builder = HTMLReportBuilder(config.report_directory)
-            reuse_builder.add_table(sanitized_reuse_rows, ["NT Hash", "Count", "Password", "Details"], cols_to_not_escape=3)
+            reuse_builder.add_table(processed_reuse_rows, ["NT Hash", "Count", "Password", "Details"], cols_to_not_escape=3)
             reuse_filename = reuse_builder.write_report("password_reuse_stats.html")
             summary_table.append((None, None, "Password Reuse Stats", f'<a href="{reuse_filename}">Details</a>'))
         
@@ -1850,12 +1794,11 @@ def main():
         top_passwords = db_manager.cursor.fetchall()
         
         if top_passwords:
-            # Sanitize passwords for display
-            sanitized_passwords = [sanitizer.sanitize_table_row((pwd,), [0], [], config.sanitize_output)[0] for pwd, _ in top_passwords]
             password_counts = [count for _, count in top_passwords]
+            passwords_for_chart = [pwd for pwd, _ in top_passwords]
             
             top_passwords_chart_data = {
-                "labels": sanitized_passwords,
+                "labels": passwords_for_chart,
                 "datasets": [{
                     "label": "Usage Count",
                     "data": password_counts,
@@ -1944,13 +1887,9 @@ def main():
                     
                     processed_member_rows.append((username_full, nt_hash, sharing_text, share_count, password, lm_non_blank))
                 
-                # Sanitize member data
-                sanitized_member_rows = [sanitizer.sanitize_table_row(row, [4], [1], config.sanitize_output) 
-                                       for row in processed_member_rows]
-                
                 member_headers = ["Username", "NT Hash", "Users Sharing this Hash", "Share Count", "Password", "Non-Blank LM Hash?"]
                 member_builder = HTMLReportBuilder(config.report_directory)
-                member_builder.add_table(sanitized_member_rows, member_headers, cols_to_not_escape=2)
+                member_builder.add_table(processed_member_rows, member_headers, cols_to_not_escape=2)
                 
                 # Sanitize group name for filename
                 safe_group_name = re.sub(r'[<>:"/\\|?*]', '_', group_name)
@@ -1963,13 +1902,9 @@ def main():
                                             ORDER BY plen''')
                 cracked_rows = db_manager.cursor.fetchall()
                 
-                # Sanitize cracked data
-                sanitized_cracked_rows = [sanitizer.sanitize_table_row(row, [2], [], config.sanitize_output) 
-                                        for row in cracked_rows]
-                
                 cracked_headers = [f'Username of "{group_name}" Member', "Password Length", "Password", "Only LM Cracked"]
                 cracked_builder = HTMLReportBuilder(config.report_directory)
-                cracked_builder.add_table(sanitized_cracked_rows, cracked_headers)
+                cracked_builder.add_table(cracked_rows, cracked_headers)
                 cracked_filename = cracked_builder.write_report(f"{safe_group_name}_cracked_passwords.html")
                 
                 # Add to group summary

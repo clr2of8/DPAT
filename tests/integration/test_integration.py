@@ -183,11 +183,9 @@ class TestReportGenerationIntegration(DPATTestCase):
         ''')
         
         rows = cursor.fetchall()
-        sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                         for row in rows]
         
         report_builder = HTMLReportBuilder(config.report_directory)
-        report_builder.add_table(sanitized_rows, 
+        report_builder.add_table(rows, 
                                ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
         report_builder.write_report("all_hashes.html")
         
@@ -236,10 +234,8 @@ class TestReportGenerationIntegration(DPATTestCase):
         
         row = cursor.fetchone()
         if row:
-            sanitized_row = sanitizer.sanitize_table_row(row, [1], [2], config.sanitize_output)
-            
             report_builder = HTMLReportBuilder(config.report_directory)
-            report_builder.add_table([sanitized_row], ["Username", "Password", "NT Hash"])
+            report_builder.add_table([row], ["Username", "Password", "NT Hash"])
             report_builder.write_report("sanitized_test.html")
             
             # Verify sanitization
@@ -590,11 +586,8 @@ class TestHistoryDataIntegration(DPATTestCase):
                          FROM hash_infos WHERE history_index = -1 ORDER BY username_full''')
         rows = cursor.fetchall()
         
-        sanitized_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                         for row in rows]
-        
         report_builder = HTMLReportBuilder(config.report_directory)
-        report_builder.add_table(sanitized_rows, 
+        report_builder.add_table(rows, 
                                ["Username", "Password", "Password Length", "NT Hash", "Only LM Cracked"])
         report_filename = report_builder.write_report("history_test_all_hashes.html")
         
@@ -609,11 +602,8 @@ class TestHistoryDataIntegration(DPATTestCase):
         history_rows = cursor.fetchall()
         
         if history_rows:
-            sanitized_history_rows = [sanitizer.sanitize_table_row(row, [1], [3], config.sanitize_output) 
-                                    for row in history_rows]
-            
             history_builder = HTMLReportBuilder(config.report_directory)
-            history_builder.add_table(sanitized_history_rows, 
+            history_builder.add_table(history_rows, 
                                     ["Username", "Password", "Password Length", "NT Hash", "History Index"])
             history_filename = history_builder.write_report("history_test_password_history.html")
             

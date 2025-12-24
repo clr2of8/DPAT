@@ -204,14 +204,7 @@ class TestDataSanitizer(DPATTestCase):
         result = DataSanitizer.sanitize_value(empty_value, should_sanitize=True)
         self.assertEqual(result, "")
     
-    def test_sanitize_table_row(self):
-        """Test sanitization of table rows."""
-        row = ("user1", "password123", "31d6cfe0d16ae931b73c59d7e0c089c0")
-        result = DataSanitizer.sanitize_table_row(row, [1], [2], should_sanitize=True)
-        
-        self.assertEqual(result[0], "user1")  # Username unchanged
-        self.assertEqual(result[1], "p*********3")  # Password sanitized
-        self.assertEqual(result[2], "31d6************************89c0")  # Hash sanitized
+
 
 
 class TestHTMLReportBuilder(DPATTestCase):
