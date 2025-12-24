@@ -1,7 +1,13 @@
 {
 	"image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
-	"features": {
-		"ghcr.io/devcontainers-extra/features/live-server:1": {}
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ritwickdey.liveserver"
+			]
+		}
 	},
-	"postCreateCommand": "pip install -r requirements-dev.txt"
+	"postCreateCommand": "pip install -r requirements.txt"
 }

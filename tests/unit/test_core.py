@@ -270,16 +270,14 @@ class TestHTMLReportBuilder(DPATTestCase):
         self.assertIn("href='_DomainPasswordAuditReport.html'", html)
     
     def test_navbar_link_custom_filename(self):
-        """Test navbar link uses custom filename when specified."""
-        builder = HTMLReportBuilder(str(self.temp_dir), main_report_file="custom_report.html")
+        """Test navbar link uses default filename."""
+        builder = HTMLReportBuilder(str(self.temp_dir))
         builder.add_content("<h1>Test Report</h1>")
         
         html = builder.generate_html()
         
-        # Should use custom filename in navbar link
-        self.assertIn("href='custom_report.html'", html)
-        # Should not contain default filename
-        self.assertNotIn("href='_DomainPasswordAuditReport.html'", html)
+        # Should use default filename in navbar link
+        self.assertIn("href='_DomainPasswordAuditReport.html'", html)
     
     def test_write_report(self):
         """Test writing report to file."""

@@ -1,76 +1,73 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
             "name": "DPAT basic",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-w"]
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-p", "8", "-w"]
         },
         {
             "name": "DPAT basic Umlauts",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\hashcat.potfile"]
+            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\hashcat.potfile", "-p", "8"]
         },         
         {
             "name": "DPAT basic History",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile"]
+            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-p", "8"]
         },
         {
             "name": "DPAT basic History small",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer-small.ntds", "-c","sample_data\\history\\john-customer-small.pot", "-w"]
+            "args": ["-n", "sample_data\\history\\customer-small.ntds", "-c","sample_data\\history\\john-customer-small.pot", "-p", "8", "-w"]
         },
         {
             "name": "DPAT basic History - Sanitized",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-s"]
+            "args": ["-n", "sample_data\\history\\customer.ntds", "-c","sample_data\\history\\hashcat.potfile", "-p", "8", "-s"]
         },      
         {
             "name": "DPAT basic Umlauts JtR",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\john.pot"]
+            "args": ["-n", "sample_data\\umlauts\\customer.ntds", "-c","sample_data\\umlauts\\john.pot", "-p", "8"]
         },
         {
             "name": "DPAT sanitized",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot", "-s"]
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot", "-p", "8", "-s"]
         },
         {
             "name": "DPAT All",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt","-s","-w"]
+            "args": ["-n", "sample_data\\customer.ntds", "-c","sample_data\\oclHashcat.pot","-g","sample_data\\Domain Admins.txt", "sample_data\\Enterprise Admins.txt", "-p", "8", "-s","-w"]
         },
         {
             "name": "gen data",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"

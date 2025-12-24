@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "C:\\Python27\\python.exe"
+    "python.pythonPath": "C:\\Python27\\python.exe",
+    "liveServer.settings.port": 5500
 }
